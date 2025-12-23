@@ -1,0 +1,39 @@
+# Rust / Cargo
+/target
+**/*.rs.bk
+*.pdb
+Cargo.lock
+
+# Odra build artifacts
+wasm/
+*.wasm
+schemas/
+
+# Secret files - NEVER COMMIT THESE!
+*.pem
+secret_key.pem
+private_key.pem
+.env
+*.key
+
+# Deployment artifacts
+deployed-contracts.json
+deploy_*.log
+deployment-state.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+.cache/

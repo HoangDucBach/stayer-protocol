@@ -1,0 +1,16 @@
+[package]
+name = "casper-cli"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+stayer = { path = "../stayer" }
+cusd = { path = "../cusd" }
+yscspr = { path = "../yscspr" }
+oracle = { path = "../oracle" }
+odra = { workspace = true }
+odra-cli = { workspace = true }
+
+[[bin]]
+name = "stayer_protocol_cli"
+path = "cli.rs"

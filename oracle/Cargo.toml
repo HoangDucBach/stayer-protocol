@@ -1,0 +1,24 @@
+[package]
+name = "oracle"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+odra = { workspace = true, default-features = false }
+
+[dev-dependencies]
+odra-test = { workspace = true }
+
+[build-dependencies]
+odra-build = { workspace = true }
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = []
+
+[[bin]]
+name = "oracle_build_contract"
+path = "bin/build_contract.rs"
+test = false

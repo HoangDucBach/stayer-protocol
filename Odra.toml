@@ -1,0 +1,11 @@
+[[contracts]]
+fqn = "stayer::stayer::StayerVault"
+
+[[contracts]]
+fqn = "cusd::cusd::CUSD"
+
+[[contracts]]
+fqn = "yscspr::yscspr::YSCSPR"
+
+[[contracts]]
+fqn = "oracle::oracle::PriceOracle"

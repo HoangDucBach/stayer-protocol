@@ -1,0 +1,17 @@
+last_updated = "2025-12-23T00:53:52Z"
+
+[[contracts]]
+name = "PriceOracle"
+package_hash = "hash-1d6a875da3aa17fcb832a9351af81bd9abd6aabb1060a2c4f5c8aa9e4dcc0e02"
+
+[[contracts]]
+name = "CUSD"
+package_hash = "hash-c2af43cfb4c724b4520b0fcafa1d70eeec50d688262c62b9ef0015f93c68471c"
+
+[[contracts]]
+name = "YSCSPR"
+package_hash = "hash-a8cee3c4ed12a83aa739502aa7cfc52dd899d51d41b224901f8407ec36d50d8d"
+
+[[contracts]]
+name = "StayerVault"
+package_hash = "hash-397d142baceac1e1e5f416ba9b544f0d6eca5627140939eb3ca86bd04b6f92d6"
