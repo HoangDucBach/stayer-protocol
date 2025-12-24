@@ -4,6 +4,8 @@ members = [
     "cusd",
     "yscspr",
     "oracle",
+    "liquid_staking",
+    "validator_registry",
     "cli",
 ]
 resolver = "2"

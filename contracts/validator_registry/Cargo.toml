@@ -1,0 +1,27 @@
+[package]
+name = "validator_registry"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+odra = { workspace = true, default-features = false }
+
+[dev-dependencies]
+odra-test = { workspace = true }
+hex = "0.4"
+
+[build-dependencies]
+odra-build = { workspace = true }
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[[bin]]
+name = "validator_registry_build_contract"
+path = "bin/build_contract.rs"
+test = false
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "z"

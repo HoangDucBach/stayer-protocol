@@ -21,6 +21,11 @@ pub trait YSCSPRContract {
     fn burn(&mut self, from: Address, amount: U256);
 }
 
+#[odra::external_contract]
+pub trait LiquidStakingContract {
+    fn get_exchange_rate(&self) -> U256;
+}
+
 // --- Data Structures ---
 
 /// Collateralized Debt Position (CDP) structure
@@ -97,6 +102,9 @@ pub struct StayerVault {
     /// ySCSPR token address
     yscspr_token: Var<Address>,
 
+    /// LiquidStaking contract address
+    liquid_staking: Var<Address>,
+
     /// Contract owner/admin
     owner: Var<Address>,
 
@@ -115,11 +123,13 @@ impl StayerVault {
         oracle: Address,
         cusd_token: Address,
         yscspr_token: Address,
+        liquid_staking: Address,
     ) {
         self.owner.set(self.env().caller());
         self.oracle.set(oracle);
         self.cusd_token.set(cusd_token);
         self.yscspr_token.set(yscspr_token);
+        self.liquid_staking.set(liquid_staking);
         self.params.set(VaultParams::default());
         self.paused.set(false);
 
@@ -520,6 +530,14 @@ impl StayerVault {
         oracle_ref.get_price()
     }
 
+    /// Get ySCSPR/CSPR exchange rate from LiquidStaking
+    fn get_exchange_rate(&self) -> U256 {
+        let liquid_staking_addr = self.liquid_staking.get_or_revert_with(Error::InvalidConfig);
+        let liquid_staking_ref: LiquidStakingContractContractRef =
+            LiquidStakingContractContractRef::new(self.env(), liquid_staking_addr);
+        liquid_staking_ref.get_exchange_rate()
+    }
+
     /// Mint cUSD tokens
     fn mint_cusd(&mut self, to: Address, amount: U256) {
         let cusd_addr = self.cusd_token.get_or_revert_with(Error::InvalidConfig);
@@ -563,12 +581,20 @@ impl StayerVault {
             .unwrap_or_default()
     }
 
-    /// Convert collateral (CSPR motes) to USD value
-    fn collateral_to_usd(&self, collateral: U256, price: U256) -> U256 {
+    /// Convert collateral (ySCSPR) to USD value
+    fn collateral_to_usd(&self, yscspr_collateral: U256, cspr_price: U256) -> U256 {
         const MOTES_PER_CSPR: u128 = 1_000_000_000;
 
-        collateral
-            .checked_mul(price)
+        let exchange_rate = self.get_exchange_rate();
+
+        let cspr_equivalent = yscspr_collateral
+            .checked_mul(exchange_rate)
+            .unwrap_or_default()
+            .checked_div(U256::from(MOTES_PER_CSPR))
+            .unwrap_or_default();
+
+        cspr_equivalent
+            .checked_mul(cspr_price)
             .unwrap_or_default()
             .checked_div(U256::from(MOTES_PER_CSPR))
             .unwrap_or_default()
@@ -738,6 +764,7 @@ mod tests {
         let oracle_addr = env.get_account(1);
         let cusd_addr = env.get_account(2);
         let yscspr_addr = env.get_account(3);
+        let liquid_staking_addr = env.get_account(4);
 
         env.set_caller(owner);
 
@@ -745,6 +772,7 @@ mod tests {
             oracle: oracle_addr,
             cusd_token: cusd_addr,
             yscspr_token: yscspr_addr,
+            liquid_staking: liquid_staking_addr,
         });
 
         (env, vault, owner, oracle_addr)

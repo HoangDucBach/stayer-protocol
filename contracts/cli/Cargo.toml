@@ -8,6 +8,8 @@ stayer = { path = "../stayer" }
 cusd = { path = "../cusd" }
 yscspr = { path = "../yscspr" }
 oracle = { path = "../oracle" }
+validator_registry = { path = "../validator_registry" }
+liquid_staking = { path = "../liquid_staking" }
 odra = { workspace = true }
 odra-cli = { workspace = true }
 

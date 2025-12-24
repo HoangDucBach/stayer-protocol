@@ -1,5 +1,8 @@
 [[contracts]]
-fqn = "stayer::stayer::StayerVault"
+fqn = "oracle::oracle::PriceOracle"
+
+[[contracts]]
+fqn = "validator_registry::validator_registry::ValidatorRegistry"
 
 [[contracts]]
 fqn = "cusd::cusd::CUSD"
@@ -8,4 +11,7 @@ fqn = "cusd::cusd::CUSD"
 fqn = "yscspr::yscspr::YSCSPR"
 
 [[contracts]]
-fqn = "oracle::oracle::PriceOracle"
+fqn = "liquid_staking::liquid_staking::LiquidStaking"
+
+[[contracts]]
+fqn = "stayer::stayer::StayerVault"

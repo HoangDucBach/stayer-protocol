@@ -8,6 +8,8 @@ use oracle::oracle::{PriceOracle, PriceOracleInitArgs};
 use cusd::cusd::{CUSD, CUSDInitArgs};
 use yscspr::yscspr::{YSCSPR, YSCSPRInitArgs};
 use stayer::stayer::{StayerVault, StayerVaultInitArgs};
+use validator_registry::validator_registry::{ValidatorRegistry, ValidatorRegistryInitArgs};
+use liquid_staking::liquid_staking::{LiquidStaking, LiquidStakingInitArgs};
 
 pub struct DeployStayerScript;
 
@@ -33,6 +35,15 @@ impl DeployScript for DeployStayerScript {
         let oracle_address = oracle.address();
 
         let vault_placeholder = Address::from_str("hash-0000000000000000000000000000000000000000000000000000000000000000").unwrap();
+        let keeper_address = env.caller();
+
+        let auction_contract_hash = "hash-93d923e336b20a4c4ca14d592b60e5bd3fe330775618290104f9beb326db7ae2";
+        let auction_address = Address::from_str(auction_contract_hash).unwrap();
+
+        let validator_registry = ValidatorRegistry::try_deploy(env, ValidatorRegistryInitArgs {
+            keeper_address,
+        })?;
+        container.add_contract(&validator_registry)?;
 
         let mut cusd = CUSD::try_deploy(env, CUSDInitArgs {
             vault_address: vault_placeholder,
@@ -44,10 +55,19 @@ impl DeployScript for DeployStayerScript {
         })?;
         container.add_contract(&yscspr)?;
 
+        let liquid_staking = LiquidStaking::try_deploy(env, LiquidStakingInitArgs {
+            validator_registry: validator_registry.address(),
+            yscspr_token: yscspr.address(),
+            auction_contract: auction_address,
+            keeper: keeper_address,
+        })?;
+        container.add_contract(&liquid_staking)?;
+
         let stayer = StayerVault::try_deploy(env, StayerVaultInitArgs {
             oracle: oracle_address,
             cusd_token: cusd.address(),
             yscspr_token: yscspr.address(),
+            liquid_staking: liquid_staking.address(),
         })?;
         container.add_contract(&stayer)?;
 
@@ -65,6 +85,8 @@ pub fn main() {
         .contract::<PriceOracle>()
         .contract::<CUSD>()
         .contract::<YSCSPR>()
+        .contract::<ValidatorRegistry>()
+        .contract::<LiquidStaking>()
         .contract::<StayerVault>()
         .build()
         .run();
