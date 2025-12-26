@@ -1,5 +1,5 @@
-use odra::prelude::*;
 use odra::casper_types::PublicKey;
+use odra::prelude::*;
 
 const MIN_P_AVG: u64 = 10;
 const MAX_P_AVG: u64 = 100;
@@ -65,11 +65,20 @@ impl ValidatorRegistry {
         }
 
         for validator_update in validators_data.iter() {
+            if validator_update.fee > 100 {
+                self.env().revert(Error::InvalidFee);
+            }
+
+            if validator_update.decay_factor > 100 {
+                self.env().revert(Error::InvalidDecayFactor);
+            }
+
             let p_score = self.calculate_p_score(
                 validator_update.fee,
                 validator_update.is_active,
                 validator_update.decay_factor,
             );
+            
 
             let validator_data = ValidatorData {
                 fee: validator_update.fee,
@@ -79,7 +88,8 @@ impl ValidatorRegistry {
                 updated_era: current_era,
             };
 
-            self.validators.set(&validator_update.pubkey, validator_data);
+            self.validators
+                .set(&validator_update.pubkey, validator_data);
         }
 
         self.network_p_avg.set(p_avg);
@@ -109,9 +119,9 @@ impl ValidatorRegistry {
 
         match validator_opt {
             Some(v) => {
-                v.p_score > 0 &&
-                v.is_active &&
-                (current_era - self.last_update_era.get_or_default()) <= STALE_DATA_ERAS
+                v.p_score > 0
+                    && v.is_active
+                    && (current_era - self.last_update_era.get_or_default()) <= STALE_DATA_ERAS
             }
             None => false,
         }
@@ -128,12 +138,8 @@ impl ValidatorRegistry {
         }
 
         let fee_component = 100u64.saturating_sub(fee);
-        let status_factor = if is_active { 100u64 } else { 0u64 };
 
-        fee_component
-            .saturating_mul(status_factor)
-            .saturating_mul(decay_factor)
-            / 10000
+        fee_component.saturating_mul(decay_factor) / 100
     }
 
     fn require_keeper(&self) {
@@ -170,13 +176,15 @@ pub enum Error {
     TooManyValidators = 3,
     InvalidPAvg = 4,
     InvalidEra = 5,
+    InvalidFee = 6,
+    InvalidDecayFactor = 7,
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use odra::host::{Deployer, HostEnv};
     use odra::casper_types::AsymmetricType;
+    use odra::host::{Deployer, HostEnv};
 
     fn setup() -> (HostEnv, ValidatorRegistryHostRef, Address, Address) {
         let env = odra_test::env();
@@ -185,9 +193,12 @@ mod tests {
 
         env.set_caller(owner);
 
-        let registry = ValidatorRegistry::deploy(&env, ValidatorRegistryInitArgs {
-            keeper_address: keeper,
-        });
+        let registry = ValidatorRegistry::deploy(
+            &env,
+            ValidatorRegistryInitArgs {
+                keeper_address: keeper,
+            },
+        );
 
         (env, registry, owner, keeper)
     }
