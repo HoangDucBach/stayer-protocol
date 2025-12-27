@@ -25,6 +25,8 @@ export class ValidatorRegistryService {
   private readonly logger = new Logger(ValidatorRegistryService.name);
   private readonly DECAY_WINDOW = 30;
 
+  private lastProcessedEra = 0;
+
   constructor(
     private casperService: CasperService,
     private configService: ConfigService,
@@ -34,29 +36,38 @@ export class ValidatorRegistryService {
     try {
       this.logger.log('Starting validator update...');
 
+      const currentEra = await this.casperService.getCurrentEra();
+      this.logger.log(`Current era: ${currentEra}`);
+
+      if (currentEra <= this.lastProcessedEra) {
+        this.logger.log(
+          `Era ${currentEra} already processed (last: ${this.lastProcessedEra}), skipping update`,
+        );
+        return;
+      }
+
       const validators = await this.casperService.getValidators();
       if (validators.length === 0) {
         this.logger.warn('No validators found');
         return;
       }
 
-      const currentEra = await this.casperService.getCurrentEra();
-      this.logger.log(`Current era: ${currentEra}`);
-
       const performanceScores = await this.fetchPerformanceScores(currentEra);
       this.logger.log(
         `Fetched performance scores for ${performanceScores.size} validators`,
       );
 
-      const validatorUpdates: ValidatorUpdateData[] = validators.map((v) => ({
-        pubkey: v.publicKey,
-        fee: v.fee,
-        isActive: v.isActive,
-        decayFactor: this.calculateDecayFactor(
-          v,
-          performanceScores.get(v.publicKey),
-        ),
-      }));
+      const validatorUpdates: ValidatorUpdateData[] = validators
+        .map((v) => ({
+          pubkey: v.publicKey,
+          fee: v.fee,
+          isActive: v.isActive,
+          decayFactor: this.calculateDecayFactor(
+            v,
+            performanceScores.get(v.publicKey),
+          ),
+        }))
+        .sort((a, b) => b.decayFactor - a.decayFactor);
 
       const BATCH_SIZE = 30;
       const totalBatches = Math.ceil(validatorUpdates.length / BATCH_SIZE);
@@ -80,14 +91,24 @@ export class ValidatorRegistryService {
         }
       }
 
+      this.lastProcessedEra = currentEra;
       this.logger.log(
-        `Successfully updated ${validatorUpdates.length} validators`,
+        `Successfully updated ${validatorUpdates.length} validators for era ${currentEra}`,
       );
     } catch (error) {
-      this.logger.error(
-        `Validator update failed: ${getErrorMessage(error)}`,
-        getErrorStack(error),
-      );
+      const errorMsg = getErrorMessage(error);
+
+      if (errorMsg.includes('InvalidEra')) {
+        this.logger.warn(
+          `Era ${await this.casperService.getCurrentEra()} already updated by another process`,
+        );
+        this.lastProcessedEra = await this.casperService.getCurrentEra();
+      } else {
+        this.logger.error(
+          `Validator update failed: ${errorMsg}`,
+          getErrorStack(error),
+        );
+      }
     }
   }
 
