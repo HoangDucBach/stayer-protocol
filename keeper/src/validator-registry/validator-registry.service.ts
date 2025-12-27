@@ -139,10 +139,10 @@ export class ValidatorRegistryService {
       }
 
       const avgScores = new Map<string, number>();
-      for (const [pubkey, scoreList] of scores.entries()) {
+      scores.forEach((scoreList, pubkey) => {
         const avg = scoreList.reduce((sum, s) => sum + s, 0) / scoreList.length;
         avgScores.set(pubkey, avg);
-      }
+      });
 
       return avgScores;
     } catch (error) {
