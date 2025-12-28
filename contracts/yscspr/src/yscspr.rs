@@ -8,8 +8,8 @@ pub struct YSCSPR {
     /// This automatically provides: transfer, approve, balance_of, etc.
     token: SubModule<Cep18>,
 
-    /// Vault contract authorized to mint/burn
-    vault: Var<Address>,
+    /// Whitelist of contracts authorized to mint/burn
+    authorized_minters: Mapping<Address, bool>,
 
     /// Contract owner for admin functions
     owner: Var<Address>,
@@ -25,9 +25,9 @@ impl YSCSPR {
     /// Initialize ySCSPR token with CEP-18 standard
     ///
     /// # Arguments
-    /// * `vault_address` - Address of Stayer vault contract
+    /// * `initial_minter` - Initial authorized minter address (e.g., LiquidStaking contract)
     #[odra(init)]
-    pub fn init(&mut self, vault_address: Address) {
+    pub fn init(&mut self, initial_minter: Address) {
         // Initialize CEP-18 module with token metadata
         self.token.init(
             YIELD_STAKED_CSPR_SYMBOL.to_string(),
@@ -36,30 +36,30 @@ impl YSCSPR {
             YIELD_STAKED_CSPR_INITIAL_SUPPLY,
         );
 
-        self.vault.set(vault_address);
+        self.authorized_minters.set(&initial_minter, true);
         self.owner.set(self.env().caller());
     }
 
-    /// Mint new tokens (vault only)
+    /// Mint new tokens (authorized minters only)
     /// Called when user deposits collateral
     ///
     /// # Arguments
     /// * `to` - Address to mint to
     /// * `amount` - Amount to mint (1:1 with sCSPR deposited)
     pub fn mint(&mut self, to: Address, amount: U256) {
-        self.ensure_vault();
+        self.ensure_authorized();
 
         self.token.raw_mint(&to, &amount);
     }
 
-    /// Burn tokens (vault only)
+    /// Burn tokens (authorized minters only)
     /// Called when user withdraws collateral
     ///
     /// # Arguments
     /// * `from` - Address to burn from
     /// * `amount` - Amount to burn
     pub fn burn(&mut self, from: Address, amount: U256) {
-        self.ensure_vault();
+        self.ensure_authorized();
 
         // Call CEP-18 standard burn function
         self.token.raw_burn(&from, &amount);
@@ -67,13 +67,31 @@ impl YSCSPR {
 
     // --- Admin Functions ---
 
-    /// Update vault address (owner only)
+    /// Add authorized contract (owner only)
+    /// Authorized contracts can mint and burn tokens
     ///
     /// # Arguments
-    /// * `new_vault` - New vault contract address
-    pub fn set_vault(&mut self, new_vault: Address) {
+    /// * `address` - Contract address to authorize
+    pub fn add_authorized(&mut self, address: Address) {
         self.ensure_owner();
-        self.vault.set(new_vault);
+        self.authorized_minters.set(&address, true);
+    }
+
+    /// Remove authorized contract (owner only)
+    ///
+    /// # Arguments
+    /// * `address` - Contract address to deauthorize
+    pub fn remove_authorized(&mut self, address: Address) {
+        self.ensure_owner();
+        self.authorized_minters.set(&address, false);
+    }
+
+    /// Check if address is authorized
+    ///
+    /// # Arguments
+    /// * `address` - Address to check
+    pub fn is_authorized(&self, address: Address) -> bool {
+        self.authorized_minters.get(&address).unwrap_or(false)
     }
 
     // --- View Functions (Delegated to CEP-18) ---
@@ -150,11 +168,11 @@ impl YSCSPR {
 
     // --- Internal Helpers ---
 
-    fn ensure_vault(&self) {
+    fn ensure_authorized(&self) {
         let caller = self.env().caller();
-        let vault = self.vault.get_or_revert_with(Error::NotInitialized);
+        let is_authorized = self.authorized_minters.get(&caller).unwrap_or(false);
 
-        if caller != vault {
+        if !is_authorized {
             self.env().revert(Error::Unauthorized);
         }
     }
@@ -189,7 +207,7 @@ mod tests {
         let env = odra_test::env();
 
         let owner = env.get_account(0);
-        let vault = env.get_account(1);
+        let minter = env.get_account(1);
         let user = env.get_account(2);
 
         env.set_caller(owner);
@@ -197,34 +215,45 @@ mod tests {
         let token = YSCSPR::deploy(
             &env,
             YSCSPRInitArgs {
-                vault_address: vault,
+                initial_minter: minter,
             },
         );
-        (env, token, owner, vault, user)
+        (env, token, owner, minter, user)
     }
 
     #[test]
-    fn test_vault_lifecycle() {
-        let (env, mut token, owner, vault, user) = setup();
-        let new_vault = env.get_account(3);
+    fn test_authorization_lifecycle() {
+        let (env, mut token, owner, authorized_contract, user) = setup();
+        let new_contract = env.get_account(3);
 
-        env.set_caller(vault);
+        // Initial authorized contract can mint
+        env.set_caller(authorized_contract);
         token.mint(user, U256::from(1000));
         assert_eq!(token.balance_of(user), U256::from(1000));
 
+        // Owner adds new authorized contract
         env.set_caller(owner);
-        token.set_vault(new_vault);
+        token.add_authorized(new_contract);
 
-        env.set_caller(new_vault);
+        // New contract can mint
+        env.set_caller(new_contract);
         token.mint(user, U256::from(500));
         assert_eq!(token.balance_of(user), U256::from(1500));
+
+        // Owner removes initial authorized contract
+        env.set_caller(owner);
+        token.remove_authorized(authorized_contract);
+
+        // Old contract cannot mint anymore
+        env.set_caller(authorized_contract);
+        assert_eq!(token.is_authorized(authorized_contract), false);
     }
 
     #[test]
     fn test_burn_success() {
-        let (env, mut token, _, vault, user) = setup();
+        let (env, mut token, _, minter, user) = setup();
 
-        env.set_caller(vault);
+        env.set_caller(minter);
         token.mint(user, U256::from(1000));
 
         token.burn(user, U256::from(400));
@@ -245,12 +274,12 @@ mod tests {
 
     #[test]
     #[should_panic]
-    fn test_fail_set_vault_unauthorized() {
+    fn test_fail_add_authorized_by_hacker() {
         let (env, mut token, _, _, _) = setup();
         let hacker = env.get_account(4);
-        let new_hacker_vault = env.get_account(5);
+        let hacker_contract = env.get_account(5);
 
         env.set_caller(hacker);
-        token.set_vault(new_hacker_vault);
+        token.add_authorized(hacker_contract);
     }
 }

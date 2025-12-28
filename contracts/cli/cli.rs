@@ -46,12 +46,12 @@ impl DeployScript for DeployStayerScript {
         container.add_contract(&validator_registry)?;
 
         let mut cusd = CUSD::try_deploy(env, CUSDInitArgs {
-            vault_address: vault_placeholder,
+            initial_minter: vault_placeholder,
         })?;
         container.add_contract(&cusd)?;
 
         let mut yscspr = YSCSPR::try_deploy(env, YSCSPRInitArgs {
-            vault_address: vault_placeholder,
+            initial_minter: vault_placeholder,
         })?;
         container.add_contract(&yscspr)?;
 
@@ -71,8 +71,11 @@ impl DeployScript for DeployStayerScript {
         })?;
         container.add_contract(&stayer)?;
 
-        cusd.set_vault(stayer.address());
-        yscspr.set_vault(stayer.address());
+        // Add StayerVault as authorized contract for CUSD (can mint/burn)
+        cusd.add_authorized(stayer.address());
+
+        // Add LiquidStaking as authorized contract for YSCSPR (can mint/burn)
+        yscspr.add_authorized(liquid_staking.address());
 
         Ok(())
     }
