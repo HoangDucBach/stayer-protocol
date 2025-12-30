@@ -1,19 +1,19 @@
 # Stayer Protocol
 
-CDP-style Collateralized Stablecoin Protocol on Casper Network
+A dual-layer DeFi protocol on Casper Network combining performance-based liquid staking with CDP stablecoin lending.
 
-Stayer Protocol là một hệ thống stablecoin được thế chấp (CDP - Collateralized Debt Position) được xây dựng trên Casper Network sử dụng Odra Framework v2.4.
+Stayer Protocol is built on Casper Network using Odra Framework v2.4. Users stake CSPR to receive ySCSPR with performance-adjusted multipliers, then use ySCSPR as collateral to mint cUSD—unlocking liquidity while earning staking rewards.
 
-## Tổng quan
+## Overview
 
-Stayer Protocol cho phép người dùng:
+Stayer Protocol allows users to:
 
-- **Gửi sCSPR** (Staked CSPR) làm tài sản thế chấp
-- **Nhận ySCSPR** (Yield Staked CSPR) token đại diện cho collateral
-- **Vay cUSD** (Casper USD) stablecoin dựa trên giá trị thế chấp
-- **Quản lý rủi ro** thông qua hệ thống thanh lý tự động
+- Deposit sCSPR (Staked CSPR) as collateral
+- Receive ySCSPR (Yield Staked CSPR) tokens representing collateral
+- Borrow cUSD (Casper USD) stablecoin based on collateral value
+- Manage risk through automated liquidation system
 
-## Kiến trúc hệ thống
+## System Architecture
 
 ```txt
 ┌─────────────────────────────────────────────────────────────┐
@@ -36,21 +36,21 @@ Stayer Protocol cho phép người dùng:
 
 ## Smart Contracts
 
-### 1. **StayerVault** - Main CDP Vault
+### 1. StayerVault - Main CDP Vault
 
-**Location:** `stayer/src/stayer.rs`
+Location: `stayer/src/stayer.rs`
 
-Core contract quản lý toàn bộ logic CDP:
+Core contract managing all CDP logic:
 
-**Các chức năng chính:**
+Main Functions:
 
-- `deposit()` - Gửi sCSPR, nhận ySCSPR (không vay)
-- `borrow(cusd_amount)` - Vay cUSD dựa trên collateral
-- `repay(cusd_amount)` - Trả nợ cUSD
-- `withdraw(yscspr_amount)` - Rút collateral (đốt ySCSPR)
-- `liquidate(user, debt_to_cover)` - Thanh lý vị thế yếu
+- `deposit()` - Deposit sCSPR, receive ySCSPR (without borrowing)
+- `borrow(cusd_amount)` - Borrow cUSD based on collateral
+- `repay(cusd_amount)` - Repay cUSD debt
+- `withdraw(yscspr_amount)` - Withdraw collateral (burns ySCSPR)
+- `liquidate(user, debt_to_cover)` - Liquidate undercollateralized positions
 
-**Cross-contract Interfaces:**
+Cross-contract Interfaces:
 
 ```rust
 #[odra::external_contract]
@@ -71,7 +71,7 @@ pub trait YSCSPRContract {
 }
 ```
 
-**Tham số mặc định:**
+Default Parameters:
 
 - LTV (Loan-to-Value): 50% (5000 bps)
 - Liquidation Threshold: 110% (11000 bps)
@@ -79,21 +79,21 @@ pub trait YSCSPRContract {
 - Stability Fee: 2% APR (200 bps)
 - Min Collateral: 100 CSPR
 
-### 2. **PriceOracle** - Price Feed Oracle
+### 2. PriceOracle - Price Feed Oracle
 
-**Location:** `oracle/src/oracle.rs`
+Location: `oracle/src/oracle.rs`
 
-Oracle hợp đồng tích hợp với Styks để lấy giá CSPR/USD.
+Oracle contract integrated with Styks to fetch CSPR/USD price.
 
-**Các chức năng:**
+Functions:
 
-- `get_price()` - Lấy giá CSPR hiện tại (với fallback + staleness check)
-- `fetch_from_styks(feed_id)` - Pull giá từ Styks Oracle
-- `update_price(new_price)` - Push giá thủ công (keeper only)
-- `set_fallback_price(price)` - Thiết lập giá dự phòng
-- `set_use_fallback(enabled)` - Bật/tắt chế độ fallback
+- `get_price()` - Get current CSPR price (with fallback + staleness check)
+- `fetch_from_styks(feed_id)` - Pull price from Styks Oracle
+- `update_price(new_price)` - Push price manually (keeper only)
+- `set_fallback_price(price)` - Set fallback price
+- `set_use_fallback(enabled)` - Enable/disable fallback mode
 
-**Styks Integration:**
+Styks Integration:
 
 ```rust
 #[odra::external_contract]
@@ -102,47 +102,47 @@ pub trait StyksPriceFeedContract {
 }
 ```
 
-**Bảo vệ:**
+Safety Features:
 
-- Circuit Breaker: Tự động chuyển sang fallback nếu giá cũ quá 2h
-- Sanity Checks: Giá phải nằm trong khoảng [MIN, MAX]
-- Admin Controls: Chỉ owner có thể config
+- Circuit Breaker: Automatically switches to fallback if price is older than 2 hours
+- Sanity Checks: Price must be within [MIN, MAX] range
+- Admin Controls: Only owner can configure settings
 
-### 3. **cUSD** - Casper USD Stablecoin
+### 3. cUSD - Casper USD Stablecoin
 
-**Location:** `cusd/src/cusd.rs`
+Location: `cusd/src/cusd.rs`
 
-CEP-18 compliant stablecoin sử dụng `odra_modules::cep18_token::Cep18`.
+CEP-18 compliant stablecoin using `odra_modules::cep18_token::Cep18`.
 
-**Đặc điểm:**
+Specifications:
 
 - Name: "Casper USD"
 - Symbol: "cUSD"
 - Decimals: 9
-- Initial Supply: 0 (chỉ mint khi có collateral)
+- Initial Supply: 0 (only minted when collateral exists)
 
-**Quyền:**
+Permissions:
 
-- Chỉ Vault contract được phép `mint/burn`
-- Owner có thể thay đổi Vault address
+- Only Vault contract can `mint/burn`
+- Owner can change Vault address
 
-### 4. **ySCSPR** - Yield Staked CSPR Token
+### 4. ySCSPR - Yield Staked CSPR Token
 
-**Location:** `yscspr/src/yscspr.rs`
+Location: `yscspr/src/yscspr.rs`
 
-CEP-18 compliant token đại diện cho collateral trong vault.
+CEP-18 compliant token representing collateral in the vault.
 
-**Đặc điểm:**
+Specifications:
 
 - Name: "Yield Staked CSPR"
 - Symbol: "ySCSPR"
 - Decimals: 9
-- Mint ratio: 1:1 với sCSPR gửi vào
+- Mint ratio: 1:1 with deposited sCSPR
 
-**Lưu ý:**
+Notes:
 
-- User cần giữ ySCSPR để rút collateral
-- Có thể transfer ySCSPR → Chuyển quyền sở hữu collateral
+- Users must hold ySCSPR to withdraw collateral
+- ySCSPR is transferable, enabling collateral ownership transfer
 
 ## User Flows
 
@@ -165,12 +165,12 @@ User                    StayerVault              Oracle        cUSD        ySCSP
  │◀────500 cUSD──────────────│                                    │
 ```
 
-**Tính toán:**
+Calculation:
 
 - Collateral Value: 1000 CSPR × $4.00 = $4,000
 - Max Borrowable (50% LTV): $4,000 × 50% = $2,000 cUSD
-- User vay: $500 cUSD (an toàn, chỉ 12.5% collateral value)
-- Health Factor: ($4,000 × 110%) / $500 = 880% (rất khỏe)
+- User borrows: $500 cUSD (safe, only 12.5% of collateral value)
+- Health Factor: ($4,000 × 110%) / $500 = 880% (very healthy)
 
 ### Flow 2: Repay & Withdraw
 
@@ -186,14 +186,14 @@ User                    StayerVault              cUSD        ySCSPR
  │◀────1000 CSPR─────────────│                                   │
 ```
 
-### Flow 3: Liquidation (khi giá CSPR giảm)
+### Flow 3: Liquidation (when CSPR price drops)
 
 ```
 Liquidator              StayerVault              cUSD        Oracle
  │                           │                      │            │
  │──liquidate(user, 500)────▶│                      │            │
  │                           │──get_price()────────────────────▶│
- │                           │◀──200 cents (giảm từ $4→$2)─────│
+ │                           │◀──200 cents (dropped from $4→$2)─│
  │                           │                                   │
  │                           │  Health Factor Check:            │
  │                           │  (1000×$2×110%)/$500 = 44% < 100%│
@@ -204,13 +204,13 @@ Liquidator              StayerVault              cUSD        Oracle
  │  (500/2 × 1.1 = 275 CSPR) │                                   │
 ```
 
-**Lợi nhuận Liquidator:**
+Liquidator Profit:
 
-- Trả 500 cUSD (= $500)
-- Nhận 275 CSPR × $2 = $550
+- Pays 500 cUSD (= $500)
+- Receives 275 CSPR × $2 = $550
 - Profit: $50 (10% liquidation bonus)
 
-## Cơ chế bảo vệ
+## Safety Mechanisms
 
 ### 1. Health Factor
 
@@ -218,119 +218,31 @@ Liquidator              StayerVault              cUSD        Oracle
 Health Factor = (Collateral Value × Liquidation Threshold) / Debt Value
 ```
 
-- **> 100%**: Vị thế an toàn
-- **< 100%**: Có thể bị thanh lý
+- Greater than 100%: Position is safe
+- Less than 100%: Position can be liquidated
 
 ### 2. Circuit Breaker (Oracle)
 
-- Nếu giá > 2h không update → Tự động dùng fallback price
-- Owner có thể manually enable fallback mode
+- If price is not updated for more than 2 hours, automatically uses fallback price
+- Owner can manually enable fallback mode
 
 ### 3. Access Control
 
-- **Vault**: Chỉ owner thay đổi params, oracle, pause
-- **cUSD/ySCSPR**: Chỉ vault mint/burn
-- **Oracle**: Chỉ owner config, chỉ updaters push giá
+- Vault: Only owner can change parameters, oracle, or pause
+- cUSD/ySCSPR: Only vault can mint/burn
+- Oracle: Only owner can configure, only updaters can push prices
 
-## Testing
+## Deployed Addresses
 
-### Run all tests
-
-```bash
-cargo test --workspace --lib
-```
-
-### Test individual contracts
-
-```bash
-cargo test -p stayer --lib
-cargo test -p cusd --lib
-cargo test -p yscspr --lib
-cargo test -p oracle --lib
-```
-
-### Build all contracts
-
-```bash
-cargo build --workspace
-```
-
-## Deployment Flow
-
-1. **Deploy Tokens:**
-
-   ```rust
-   // Deploy cUSD with placeholder vault address
-   let cusd = CUSD::deploy(env, placeholder_address);
-
-   // Deploy ySCSPR with placeholder vault address
-   let yscspr = YSCSPR::deploy(env, placeholder_address);
-   ```
-
-2. **Deploy Oracle:**
-
-   ```rust
-   // Deploy PriceOracle with initial price and Styks address
-   let oracle = PriceOracle::deploy(env, (
-       U256::from(400), // $4.00 initial price
-       styks_address
-   ));
-   ```
-
-3. **Deploy Vault:**
-
-   ```rust
-   let vault = StayerVault::deploy(env, (
-       oracle.address(),
-       cusd.address(),
-       yscspr.address()
-   ));
-   ```
-
-4. **Configure Tokens:**
-
-   ```rust
-   // Set vault as authorized minter/burner
-   cusd.set_vault(vault.address());
-   yscspr.set_vault(vault.address());
-   ```
-
-5. **Configure Oracle:**
-
-   ```rust
-   oracle.fetch_from_styks("CSPRUSD".to_string());
-   ```
-
-## Critical Notes
-
-⚠️ **QUAN TRỌNG:**
-
-1. **Oracle Dependency**: Toàn bộ hệ thống phụ thuộc vào Oracle. Nếu Oracle sai giá → Thanh lý oan hoặc bad debt.
-
-2. **Vault as Single Point**: Vault contract được quyền mint unlimited cUSD. Nếu vault bị hack → Collapse.
-
-3. **Parameter nam**: Các tham số (LTV, Liquidation Threshold) cần được chọn cẩn thận:
-   - LTV quá cao → Dễ liquidation
-   - Liquidation Threshold quá thấp → Bad debt risk
-
-4. **Testing Required**: Cần test kỹ với:
-   - Price volatility scenarios
-   - Liquidation cascades
-   - Oracle failures
-   - Cross-contract call failures
+| Contract | Address |
+| --- | --- |
+| PriceOracle | `hash-3afd2f0f52a2b8de66c44b6ba97e6f056b5d9862fbb8736e647555ca242e74f9` |
+| ValidatorRegistry | `hash-976b6dc755f25fc6d2052e9a00d95c0a84516185a9ebad52a9df38482c09dee3` |
+| cUSD | `hash-eb59671387ed97325728ac586477899db2f43c1cffd963b7937e696f2389a3a1` |
+| ySCSPR | `hash-c381d0f5faff2d59badd6606fd696691c3fcccc0700ce897336461171eec92e6` |
+| LiquidStaking | `hash-4470231de5e030712f19811893339988fcc51f1bd8a3a10c6732dd5481c0fef5` |
+| StayerVault | `hash-ccfa385e56c514710643f171154eab09512a4650de5ee52c90af09d3ef40dddb` |
 
 ## License
 
 MIT License
-
-## Contributing
-
-1. Fork the project
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
-## Contact
-
-Project Link: [https://github.com/yourusername/stayer-protocol](https://github.com/yourusername/stayer-protocol)
