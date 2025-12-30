@@ -1,73 +1,118 @@
 import { useClickRef } from "@make-software/csprclick-ui";
 import { useMutation, useQuery, UseMutationOptions, UseQueryOptions } from "@tanstack/react-query";
-import { CLValueBuilder, RuntimeArgs } from "casper-js-sdk";
+import {
+  Args,
+  CLValue,
+  PublicKey,
+  ContractCallBuilder,
+  HttpHandler,
+  RpcClient,
+} from "casper-js-sdk";
 import { CUSD_CONTRACT, CASPER_CHAIN_NAME } from "@/configs/constants";
+import { waitForDeployOrTransaction } from "@/libs/casper";
+import type { TransferPayload, ApprovePayload } from "@/types/core";
 
-type TransferPayload = {
-  recipient: string;
-  amount: string;
-};
+// Helper to create RPC client from cspr.click proxy
+function createRpcClient(clickRef: ReturnType<typeof useClickRef>) {
+  const proxy = clickRef?.getCsprCloudProxy();
+  if (!proxy) throw new Error("CSPR.cloud proxy not available");
 
-type ApprovePayload = {
-  spender: string;
-  amount: string;
-};
+  const handler = new HttpHandler(proxy.RpcURL);
+  handler.setCustomHeaders({ Authorization: proxy.RpcDigestToken });
+  return new RpcClient(handler);
+}
 
-type HooksOptions<TData = unknown, TError = Error> = {
-  options?: Omit<UseMutationOptions<TData, TError>, "mutationFn">;
+type HooksOptions<TData = unknown, TError = Error, TVariables = void> = {
+  options?: Omit<UseMutationOptions<TData, TError, TVariables>, "mutationFn">;
 };
 
 type QueryHooksOptions<TData = unknown, TError = Error> = {
   options?: Omit<UseQueryOptions<TData, TError>, "queryKey" | "queryFn">;
 };
 
-export function useTransfer({ options }: HooksOptions<string> = {}) {
+export function useTransfer({ options }: HooksOptions<string, Error, TransferPayload> = {}) {
   const clickRef = useClickRef();
 
   return useMutation({
-    mutationFn: async ({ recipient, amount }: TransferPayload) => {
+    mutationFn: async ({ recipient, amount, waitForConfirmation }: TransferPayload) => {
       if (!clickRef) throw new Error("Click ref not initialized");
 
-      const deploy = await clickRef.makeDeploy(
-        RuntimeArgs.fromMap({
-          recipient: CLValueBuilder.byteArray(Buffer.from(recipient, "hex")),
-          amount: CLValueBuilder.u256(amount),
-        }),
-        {
-          entryPoint: "transfer",
-          contractHash: CUSD_CONTRACT,
-        },
-        CASPER_CHAIN_NAME
-      );
+      const activeAccount = clickRef.currentAccount;
+      if (!activeAccount) throw new Error("No active account");
 
-      const result = await clickRef.send(deploy);
-      return result.deployHash;
+      const senderPublicKey = PublicKey.fromHex(activeAccount.public_key);
+
+      const args = Args.fromMap({
+        recipient: CLValue.newCLByteArray(Buffer.from(recipient, "hex")),
+        amount: CLValue.newCLUInt256(amount),
+      });
+
+      const transaction = new ContractCallBuilder()
+        .from(senderPublicKey)
+        .byHash(CUSD_CONTRACT)
+        .entryPoint("transfer")
+        .runtimeArgs(args)
+        .chainName(CASPER_CHAIN_NAME)
+        .payment(3_000_000_000) // 3 CSPR for gas
+        .build();
+
+      const result = await clickRef.send(transaction, activeAccount.public_key);
+      if (!result) throw new Error("Transaction failed");
+
+      const hash = result.deployHash || result.transactionHash || "";
+
+      if (waitForConfirmation && hash) {
+        const txResult = await waitForDeployOrTransaction(hash);
+        if (!txResult.executionResult.success) {
+          throw new Error(txResult.executionResult.errorMessage || "Transaction execution failed");
+        }
+      }
+
+      return hash;
     },
     ...options,
   });
 }
 
-export function useApprove({ options }: HooksOptions<string> = {}) {
+export function useApprove({ options }: HooksOptions<string, Error, ApprovePayload> = {}) {
   const clickRef = useClickRef();
 
   return useMutation({
-    mutationFn: async ({ spender, amount }: ApprovePayload) => {
+    mutationFn: async ({ spender, amount, waitForConfirmation }: ApprovePayload) => {
       if (!clickRef) throw new Error("Click ref not initialized");
 
-      const deploy = await clickRef.makeDeploy(
-        RuntimeArgs.fromMap({
-          spender: CLValueBuilder.byteArray(Buffer.from(spender, "hex")),
-          amount: CLValueBuilder.u256(amount),
-        }),
-        {
-          entryPoint: "approve",
-          contractHash: CUSD_CONTRACT,
-        },
-        CASPER_CHAIN_NAME
-      );
+      const activeAccount = clickRef.currentAccount;
+      if (!activeAccount) throw new Error("No active account");
 
-      const result = await clickRef.send(deploy);
-      return result.deployHash;
+      const senderPublicKey = PublicKey.fromHex(activeAccount.public_key);
+
+      const args = Args.fromMap({
+        spender: CLValue.newCLByteArray(Buffer.from(spender, "hex")),
+        amount: CLValue.newCLUInt256(amount),
+      });
+
+      const transaction = new ContractCallBuilder()
+        .from(senderPublicKey)
+        .byHash(CUSD_CONTRACT)
+        .entryPoint("approve")
+        .runtimeArgs(args)
+        .chainName(CASPER_CHAIN_NAME)
+        .payment(3_000_000_000) // 3 CSPR for gas
+        .build();
+
+      const result = await clickRef.send(transaction, activeAccount.public_key);
+      if (!result) throw new Error("Transaction failed");
+
+      const hash = result.deployHash || result.transactionHash || "";
+
+      if (waitForConfirmation && hash) {
+        const txResult = await waitForDeployOrTransaction(hash);
+        if (!txResult.executionResult.success) {
+          throw new Error(txResult.executionResult.errorMessage || "Transaction execution failed");
+        }
+      }
+
+      return hash;
     },
     ...options,
   });
@@ -84,17 +129,22 @@ export function useBalanceOf(
     queryFn: async () => {
       if (!clickRef) throw new Error("Click ref not initialized");
 
-      const result = await clickRef.callEntrypoint(
-        RuntimeArgs.fromMap({
-          address: CLValueBuilder.byteArray(Buffer.from(owner, "hex")),
-        }),
-        {
-          entryPoint: "balance_of",
-          contractHash: CUSD_CONTRACT,
-        }
-      );
+      const rpcClient = createRpcClient(clickRef);
+      const contractKey = `hash-${CUSD_CONTRACT}`;
 
-      return result as string;
+      try {
+        const result = await rpcClient.getDictionaryItemByIdentifier(null, {
+          contractNamedKey: {
+            key: contractKey,
+            dictionaryName: "balances",
+            dictionaryItemKey: owner,
+          },
+        });
+
+        return result.storedValue?.clValue?.toString() || "0";
+      } catch {
+        return "0";
+      }
     },
     enabled: !!clickRef && !!owner,
     ...options,
@@ -109,15 +159,11 @@ export function useTotalSupply({ options }: QueryHooksOptions<string> = {}) {
     queryFn: async () => {
       if (!clickRef) throw new Error("Click ref not initialized");
 
-      const result = await clickRef.callEntrypoint(
-        RuntimeArgs.fromMap({}),
-        {
-          entryPoint: "total_supply",
-          contractHash: CUSD_CONTRACT,
-        }
-      );
+      const rpcClient = createRpcClient(clickRef);
+      const contractKey = `hash-${CUSD_CONTRACT}`;
 
-      return result as string;
+      const result = await rpcClient.queryLatestGlobalState(contractKey, ["total_supply"]);
+      return result.storedValue?.clValue?.toString() || "0";
     },
     enabled: !!clickRef,
     ...options,
@@ -136,18 +182,24 @@ export function useAllowance(
     queryFn: async () => {
       if (!clickRef) throw new Error("Click ref not initialized");
 
-      const result = await clickRef.callEntrypoint(
-        RuntimeArgs.fromMap({
-          owner: CLValueBuilder.byteArray(Buffer.from(owner, "hex")),
-          spender: CLValueBuilder.byteArray(Buffer.from(spender, "hex")),
-        }),
-        {
-          entryPoint: "allowance",
-          contractHash: CUSD_CONTRACT,
-        }
-      );
+      const rpcClient = createRpcClient(clickRef);
+      const contractKey = `hash-${CUSD_CONTRACT}`;
 
-      return result as string;
+      try {
+        // Allowance dictionary key is typically owner_spender
+        const dictKey = `${owner}_${spender}`;
+        const result = await rpcClient.getDictionaryItemByIdentifier(null, {
+          contractNamedKey: {
+            key: contractKey,
+            dictionaryName: "allowances",
+            dictionaryItemKey: dictKey,
+          },
+        });
+
+        return result.storedValue?.clValue?.toString() || "0";
+      } catch {
+        return "0";
+      }
     },
     enabled: !!clickRef && !!owner && !!spender,
     ...options,
@@ -162,15 +214,11 @@ export function useTokenName({ options }: QueryHooksOptions<string> = {}) {
     queryFn: async () => {
       if (!clickRef) throw new Error("Click ref not initialized");
 
-      const result = await clickRef.callEntrypoint(
-        RuntimeArgs.fromMap({}),
-        {
-          entryPoint: "name",
-          contractHash: CUSD_CONTRACT,
-        }
-      );
+      const rpcClient = createRpcClient(clickRef);
+      const contractKey = `hash-${CUSD_CONTRACT}`;
 
-      return result as string;
+      const result = await rpcClient.queryLatestGlobalState(contractKey, ["name"]);
+      return result.storedValue?.clValue?.toString() || "CUSD";
     },
     enabled: !!clickRef,
     staleTime: Infinity,
@@ -186,15 +234,11 @@ export function useTokenSymbol({ options }: QueryHooksOptions<string> = {}) {
     queryFn: async () => {
       if (!clickRef) throw new Error("Click ref not initialized");
 
-      const result = await clickRef.callEntrypoint(
-        RuntimeArgs.fromMap({}),
-        {
-          entryPoint: "symbol",
-          contractHash: CUSD_CONTRACT,
-        }
-      );
+      const rpcClient = createRpcClient(clickRef);
+      const contractKey = `hash-${CUSD_CONTRACT}`;
 
-      return result as string;
+      const result = await rpcClient.queryLatestGlobalState(contractKey, ["symbol"]);
+      return result.storedValue?.clValue?.toString() || "CUSD";
     },
     enabled: !!clickRef,
     staleTime: Infinity,
@@ -210,15 +254,11 @@ export function useTokenDecimals({ options }: QueryHooksOptions<number> = {}) {
     queryFn: async () => {
       if (!clickRef) throw new Error("Click ref not initialized");
 
-      const result = await clickRef.callEntrypoint(
-        RuntimeArgs.fromMap({}),
-        {
-          entryPoint: "decimals",
-          contractHash: CUSD_CONTRACT,
-        }
-      );
+      const rpcClient = createRpcClient(clickRef);
+      const contractKey = `hash-${CUSD_CONTRACT}`;
 
-      return result as number;
+      const result = await rpcClient.queryLatestGlobalState(contractKey, ["decimals"]);
+      return Number(result.storedValue?.clValue?.toString() || "9");
     },
     enabled: !!clickRef,
     staleTime: Infinity,

@@ -1,5 +1,5 @@
 "use client";
-import { Button, StackProps } from "@chakra-ui/react";
+import { Button, Skeleton, StackProps } from "@chakra-ui/react";
 import { useClickRef } from "@make-software/csprclick-ui";
 import { useEffect } from "react";
 
@@ -17,7 +17,11 @@ export function WalletConnect(props: Props) {
       // update your app accordingly
     });
   }, [clickRef?.on]);
-
+  
+  if(!clickRef) {
+    return <Skeleton height="40px" width="150px" rounded={"lg"}/>;
+  }
+  
   if (!clickRef.isConnected) {
     return (
       <Button
