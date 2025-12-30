@@ -16,7 +16,7 @@ export default function Provider({ children }: Props) {
   return (
     <QueryClientProvider client={queryClient}>
       <CasperClickProvider>
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider defaultTheme="light" forcedTheme="light">{children}</ThemeProvider>
       </CasperClickProvider>
     </QueryClientProvider>
   );

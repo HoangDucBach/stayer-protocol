@@ -4,13 +4,13 @@ export const colors = defineSemanticTokens.colors({
   bg: {
     DEFAULT: {
       value: {
-        _light: "{colors.white}",
-        _dark: "{colors.black}",
+        _light: "#fae4cf",
+        _dark: "#0a0f23",
       },
     },
     subtle: {
       value: {
-        _light: "{colors.gray.50}",
+        _light: "#eed9c5",
         _dark: "{colors.gray.950}",
       },
     },
@@ -22,7 +22,7 @@ export const colors = defineSemanticTokens.colors({
     },
     emphasized: {
       value: {
-        _light: "{colors.gray.200}",
+        _light: "#cfaa7c",
         _dark: "{colors.gray.800}",
       },
     },
@@ -79,13 +79,13 @@ export const colors = defineSemanticTokens.colors({
     subtle: {
       value: {
         _light: "{colors.gray.400}",
-        _dark: "{colors.gray.500}",
+        _dark: "#aea28e",
       },
     },
     inverted: {
       value: {
         _light: "{colors.gray.50}",
-        _dark: "{colors.black}",
+        _dark: "#ffe9d2",
       },
     },
     error: {
@@ -96,7 +96,7 @@ export const colors = defineSemanticTokens.colors({
     },
     warning: {
       value: {
-        _light: "{colors.orange.600}",
+        _light: "{colors.yellow.600}",
         _dark: "{colors.orange.300}",
       },
     },
@@ -222,58 +222,108 @@ export const colors = defineSemanticTokens.colors({
   red: {
     contrast: {
       value: {
-        _light: "white",
-        _dark: "white",
+        _light: "{colors.white}",
+        _dark: "{colors.white}",
       },
     },
     fg: {
       value: {
-        _light: "{colors.red.700}",
-        _dark: "{colors.red.300}",
+        _light: "{colors.demonicRed.700}",
+        _dark: "{colors.demonicRed.300}",
       },
     },
     subtle: {
       value: {
-        _light: "{colors.red.100}",
-        _dark: "{colors.red.900}",
+        _light: "{colors.demonicRed.100}",
+        _dark: "{colors.demonicRed.900}",
       },
     },
     muted: {
       value: {
-        _light: "{colors.red.200}",
-        _dark: "{colors.red.800}",
+        _light: "{colors.demonicRed.200}",
+        _dark: "{colors.demonicRed.800}",
       },
     },
     emphasized: {
       value: {
-        _light: "{colors.red.300}",
-        _dark: "{colors.red.700}",
+        _light: "{colors.demonicRed.300}",
+        _dark: "{colors.demonicRed.700}",
       },
     },
     solid: {
       value: {
-        _light: "{colors.red.600}",
-        _dark: "{colors.red.600}",
+        _light: "{colors.demonicRed.600}",
+        _dark: "{colors.demonicRed.600}",
       },
     },
     focusRing: {
       value: {
-        _light: "{colors.red.500}",
-        _dark: "{colors.red.500}",
+        _light: "{colors.demonicRed.400}",
+        _dark: "{colors.demonicRed.400}",
       },
     },
     border: {
       value: {
-        _light: "{colors.red.500}",
-        _dark: "{colors.red.400}",
+        _light: "{colors.demonicRed.500}",
+        _dark: "{colors.demonicRed.400}",
+      },
+    },
+  },
+  secondary: {
+    contrast: {
+      value: {
+        _light: "{colors.white}",
+        _dark: "{colors.white}",
+      },
+    },
+    fg: {
+      value: {
+        _light: "{colors.demonicRed.700}",
+        _dark: "{colors.demonicRed.300}",
+      },
+    },
+    subtle: {
+      value: {
+        _light: "{colors.demonicRed.100}",
+        _dark: "{colors.demonicRed.900}",
+      },
+    },
+    muted: {
+      value: {
+        _light: "{colors.demonicRed.200}",
+        _dark: "{colors.demonicRed.800}",
+      },
+    },
+    emphasized: {
+      value: {
+        _light: "{colors.demonicRed.300}",
+        _dark: "{colors.demonicRed.700}",
+      },
+    },
+    solid: {
+      value: {
+        _light: "{colors.demonicRed.600}",
+        _dark: "{colors.demonicRed.600}",
+      },
+    },
+    focusRing: {
+      value: {
+        _light: "{colors.demonicRed.400}",
+        _dark: "{colors.demonicRed.400}",
+      },
+    },
+    border: {
+      value: {
+        _light: "{colors.demonicRed.500}",
+        _dark: "{colors.demonicRed.400}",
       },
     },
   },
   orange: {
     contrast: {
       value: {
-        _light: "white",
-        _dark: "black",
+        _light: "{colors.white}",
+        _dark: "{colors.black}",
       },
     },
     fg: {
@@ -302,14 +352,64 @@ export const colors = defineSemanticTokens.colors({
     },
     solid: {
       value: {
-        _light: "{colors.orange.600}",
+        _light: "{colors.orange.500}",
         _dark: "{colors.orange.500}",
       },
     },
     focusRing: {
       value: {
+        _light: "{colors.orange.400}",
+        _dark: "{colors.orange.400}",
+      },
+    },
+    border: {
+      value: {
+        _light: "{colors.orange.500}",
+        _dark: "{colors.orange.400}",
+      },
+    },
+  },
+  primary: {
+    contrast: {
+      value: {
+        _light: "{colors.white}",
+        _dark: "{colors.black}",
+      },
+    },
+    fg: {
+      value: {
+        _light: "{colors.orange.700}",
+        _dark: "{colors.orange.300}",
+      },
+    },
+    subtle: {
+      value: {
+        _light: "{colors.orange.100}",
+        _dark: "{colors.orange.900}",
+      },
+    },
+    muted: {
+      value: {
+        _light: "{colors.orange.200}",
+        _dark: "{colors.orange.800}",
+      },
+    },
+    emphasized: {
+      value: {
+        _light: "{colors.orange.300}",
+        _dark: "{colors.orange.700}",
+      },
+    },
+    solid: {
+      value: {
         _light: "{colors.orange.500}",
         _dark: "{colors.orange.500}",
+      },
+    },
+    focusRing: {
+      value: {
+        _light: "{colors.orange.400}",
+        _dark: "{colors.orange.400}",
       },
     },
     border: {
@@ -322,8 +422,8 @@ export const colors = defineSemanticTokens.colors({
   green: {
     contrast: {
       value: {
-        _light: "white",
-        _dark: "white",
+        _light: "{colors.white}",
+        _dark: "{colors.white}",
       },
     },
     fg: {
@@ -358,8 +458,8 @@ export const colors = defineSemanticTokens.colors({
     },
     focusRing: {
       value: {
-        _light: "{colors.green.500}",
-        _dark: "{colors.green.500}",
+        _light: "{colors.green.400}",
+        _dark: "{colors.green.400}",
       },
     },
     border: {
@@ -372,8 +472,8 @@ export const colors = defineSemanticTokens.colors({
   blue: {
     contrast: {
       value: {
-        _light: "white",
-        _dark: "white",
+        _light: "{colors.white}",
+        _dark: "{colors.white}",
       },
     },
     fg: {
@@ -408,8 +508,8 @@ export const colors = defineSemanticTokens.colors({
     },
     focusRing: {
       value: {
-        _light: "{colors.blue.500}",
-        _dark: "{colors.blue.500}",
+        _light: "{colors.blue.400}",
+        _dark: "{colors.blue.400}",
       },
     },
     border: {
@@ -422,8 +522,8 @@ export const colors = defineSemanticTokens.colors({
   yellow: {
     contrast: {
       value: {
-        _light: "black",
-        _dark: "black",
+        _light: "{colors.black}",
+        _dark: "{colors.black}",
       },
     },
     fg: {
@@ -458,8 +558,8 @@ export const colors = defineSemanticTokens.colors({
     },
     focusRing: {
       value: {
-        _light: "{colors.yellow.500}",
-        _dark: "{colors.yellow.500}",
+        _light: "{colors.yellow.400}",
+        _dark: "{colors.yellow.400}",
       },
     },
     border: {
@@ -472,58 +572,58 @@ export const colors = defineSemanticTokens.colors({
   teal: {
     contrast: {
       value: {
-        _light: "white",
-        _dark: "white",
+        _light: "{colors.creamBrown.200}",
+        _dark: "{colors.creamBrown.200}",
       },
     },
     fg: {
       value: {
-        _light: "{colors.teal.700}",
-        _dark: "{colors.teal.300}",
+        _light: "{colors.creamBrown.700}",
+        _dark: "{colors.creamBrown.300}",
       },
     },
     subtle: {
       value: {
-        _light: "{colors.teal.100}",
-        _dark: "{colors.teal.900}",
+        _light: "{colors.creamBrown.100}",
+        _dark: "{colors.creamBrown.900}",
       },
     },
     muted: {
       value: {
-        _light: "{colors.teal.200}",
-        _dark: "{colors.teal.800}",
+        _light: "{colors.creamBrown.200}",
+        _dark: "{colors.creamBrown.800}",
       },
     },
     emphasized: {
       value: {
-        _light: "{colors.teal.300}",
-        _dark: "{colors.teal.700}",
+        _light: "{colors.creamBrown.300}",
+        _dark: "{colors.creamBrown.700}",
       },
     },
     solid: {
       value: {
-        _light: "{colors.teal.600}",
-        _dark: "{colors.teal.600}",
+        _light: "{colors.creamBrown.500}",
+        _dark: "{colors.creamBrown.500}",
       },
     },
     focusRing: {
       value: {
-        _light: "{colors.teal.500}",
-        _dark: "{colors.teal.500}",
+        _light: "{colors.creamBrown.400}",
+        _dark: "{colors.creamBrown.400}",
       },
     },
     border: {
       value: {
-        _light: "{colors.teal.500}",
-        _dark: "{colors.teal.400}",
+        _light: "{colors.creamBrown.500}",
+        _dark: "{colors.creamBrown.400}",
       },
     },
   },
   purple: {
     contrast: {
       value: {
-        _light: "white",
-        _dark: "white",
+        _light: "{colors.white}",
+        _dark: "{colors.white}",
       },
     },
     fg: {
@@ -558,8 +658,8 @@ export const colors = defineSemanticTokens.colors({
     },
     focusRing: {
       value: {
-        _light: "{colors.purple.500}",
-        _dark: "{colors.purple.500}",
+        _light: "{colors.purple.400}",
+        _dark: "{colors.purple.400}",
       },
     },
     border: {
@@ -572,8 +672,8 @@ export const colors = defineSemanticTokens.colors({
   pink: {
     contrast: {
       value: {
-        _light: "white",
-        _dark: "white",
+        _light: "{colors.white}",
+        _dark: "{colors.white}",
       },
     },
     fg: {
@@ -608,8 +708,8 @@ export const colors = defineSemanticTokens.colors({
     },
     focusRing: {
       value: {
-        _light: "{colors.pink.500}",
-        _dark: "{colors.pink.500}",
+        _light: "{colors.pink.400}",
+        _dark: "{colors.pink.400}",
       },
     },
     border: {
@@ -622,8 +722,8 @@ export const colors = defineSemanticTokens.colors({
   cyan: {
     contrast: {
       value: {
-        _light: "white",
-        _dark: "white",
+        _light: "{colors.white}",
+        _dark: "{colors.white}",
       },
     },
     fg: {
@@ -658,8 +758,8 @@ export const colors = defineSemanticTokens.colors({
     },
     focusRing: {
       value: {
-        _light: "{colors.cyan.500}",
-        _dark: "{colors.cyan.500}",
+        _light: "{colors.cyan.400}",
+        _dark: "{colors.cyan.400}",
       },
     },
     border: {
