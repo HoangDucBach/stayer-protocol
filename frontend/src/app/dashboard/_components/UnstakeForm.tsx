@@ -7,6 +7,8 @@ import {
   Input,
   Text,
   IconButton,
+  Image,
+  VStack,
 } from "@chakra-ui/react";
 import { useState } from "react";
 import { InfoLine } from "./InfoLine";
@@ -29,48 +31,46 @@ export function UnstakeForm() {
 
   return (
     <FormCard>
-      <Box bg="bg.emphasized" borderRadius="4xl" p={4} position="relative">
-        <Text fontSize="xl" color="fg.inverted">
-          Amount
-        </Text>
-
-        <HStack gap={3} align="center">
-          <Input
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            placeholder="1,000"
-            fontSize="2xl"
-            fontWeight="bold"
-            border="none"
-            bg="transparent"
-            color="fg.inverted"
-            _placeholder={{ color: "fg.inverted", opacity: 0.7 }}
-            _focus={{ outline: "none", boxShadow: "none" }}
-            flex={1}
-            px={0}
-          />
-          <Text fontSize="2xl" fontWeight="bold" color="fg.inverted">
-            | ySCSPR
+      <HStack bg="bg.emphasized" borderRadius="3xl" p={3} position="relative">
+        <VStack align="stretch" flex={1} gap={1}>
+          <Text fontSize="md" color="fg.inverted">
+            Amount
           </Text>
-          <IconButton
-            aria-label="Max"
-            bg="red.500"
-            color="white"
-            borderRadius="full"
-            size="lg"
-            _hover={{ bg: "red.600" }}
-            onClick={handleMaxClick}
-            fontSize="xl"
-            fontWeight="bold"
-          >
-            C
-          </IconButton>
-        </HStack>
 
-        <Text fontSize="md" color="fg.inverted">
-          Balance {balance} ySCSPR
-        </Text>
-      </Box>
+          <HStack gap={3} align="center">
+            <Input
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="Amount to stake"
+              fontSize="2xl"
+              fontWeight="semibold"
+              border="none"
+              bg="transparent"
+              color="fg.inverted"
+              _placeholder={{ color: "fg.inverted", opacity: 0.7 }}
+              _focus={{ outline: "none", boxShadow: "none" }}
+              flex={1}
+              px={0}
+            />
+            <Text fontSize="2xl" fontWeight="bold" color="fg.inverted">
+              | CSPR
+            </Text>
+          </HStack>
+          <Text fontSize="md" color="fg.inverted">
+            Balance {balance} CSPR
+          </Text>
+        </VStack>
+
+        <Image
+          src="/assets/cspr-token-icon.svg"
+          alt="CSPR Token Icon"
+          w="64px"
+          h="64px"
+          p={2}
+          bg="bg"
+          borderRadius="full"
+        />
+      </HStack>
 
       {/* Receive Amount */}
       <InfoLine
@@ -96,10 +96,7 @@ export function UnstakeForm() {
       />
 
       {/* Unbonding Time */}
-      <InfoLine
-        leftText="Unbonding takes"
-        rightText={unbondingTime}
-      />
+      <InfoLine leftText="Unbonding takes" rightText={unbondingTime} />
 
       {/* Unstake Button */}
       <Button

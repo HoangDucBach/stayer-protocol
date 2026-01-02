@@ -1,7 +1,7 @@
 "use client";
 
 import { Box, BoxProps, Heading, HStack } from "@chakra-ui/react";
-import { StakeTabs } from "./StakeTabs";
+import { StakeTabs } from "../../dashboard/_components/StakeWidget";
 
 type Props = BoxProps;
 
@@ -17,7 +17,6 @@ export function MainPanel(props: Props) {
             CSPR
           </Box>
           <Box as="span" color="fg.default">
-            to earn
           </Box>
           <Box as="span" color="primary.fg">
             ySCSPR

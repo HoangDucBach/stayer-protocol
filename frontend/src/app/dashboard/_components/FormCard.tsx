@@ -13,7 +13,7 @@ export function FormCard({ children, gradient = false }: FormCardProps) {
       align="stretch"
       bgImage={
         gradient
-          ? "linear-gradient(180deg, var(--chakra-colors-bg-subtle) 0%, var(--chakra-colors-bg-subtle) 50%, var(--chakra-colors-primary-solid))"
+          ? "linear-gradient(0deg, #F8931F 0%, #EED9C5 44.23%, #EED9C5 70.49%)"
           : undefined
       }
       bg={gradient ? undefined : "bg.subtle"}

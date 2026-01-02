@@ -12,14 +12,14 @@ export function InfoLine(props: Props) {
       return props.rightNode;
     }
     return (
-      <Text fontSize="xs" color="primary">
+      <Text fontSize="sm" color="primary">
         {props.rightText}
       </Text>
     );
   };
   return (
     <HStack justify="space-between" px={1} {...props}>
-      <Text fontSize="xs" color="fg.subtle">
+      <Text fontSize="sm" color="fg.subtle">
         {props.leftText}
       </Text>
       {rightNode()}

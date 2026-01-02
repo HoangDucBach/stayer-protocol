@@ -28,6 +28,7 @@ export function StakeTabs(props: Props) {
           value="stake"
           fontSize="md"
           fontWeight="semibold"
+          color="fg.default"
           px={0}
           pb={0}
         >
@@ -37,8 +38,7 @@ export function StakeTabs(props: Props) {
           value="unstake"
           fontSize="md"
           fontWeight="semibold"
-          color="fg.subtle"
-          _selected={{ color: "fg.default", borderBottom: "none" }}
+          color="fg.default"
           px={0}
           pb={0}
         >

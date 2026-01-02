@@ -99,10 +99,10 @@ export function StakeForm({ validator, onBack }: Props) {
         leftText="Receive"
         rightNode={
           <HStack gap={1.5}>
-            <Text fontSize="xs" color="fg.default">
+            <Text fontSize="sm" color="fg.default">
               {receiveAmount}
             </Text>
-            <Text fontSize="xs" color="primary.fg">
+            <Text fontSize="sm" color="primary.fg">
               ({bonusAmount} bonus)
             </Text>
             <Image
@@ -120,8 +120,13 @@ export function StakeForm({ validator, onBack }: Props) {
         leftText="Validator"
         rightNode={
           <HStack gap={2}>
-            <Box w={2} h={2} borderRadius="full" bg="teal.400" />
-            <Text fontSize="xs" color="fg.default" textDecoration="underline">
+            <Image
+              src="/assets/yscpr-token-icon.svg"
+              alt="Validator Icon"
+              w={4}
+              h={4}
+            />
+            <Text fontSize="sm" color="fg.default" textDecoration="underline">
               {validator}
             </Text>
           </HStack>
