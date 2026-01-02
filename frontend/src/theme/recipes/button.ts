@@ -9,7 +9,7 @@ export const buttonRecipe = defineRecipe({
     justifyContent: "center",
     userSelect: "none",
     position: "relative",
-    borderRadius: "l2",
+    borderRadius: "xl",
     whiteSpace: "nowrap",
     verticalAlign: "middle",
     borderWidth: "1px",
