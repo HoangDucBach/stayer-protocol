@@ -17,6 +17,7 @@ export function MainPanel(props: Props) {
             CSPR
           </Box>
           <Box as="span" color="fg.default">
+            to earn
           </Box>
           <Box as="span" color="primary.fg">
             ySCSPR
