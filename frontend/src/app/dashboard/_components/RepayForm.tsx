@@ -8,30 +8,24 @@ import {
   Text,
   IconButton,
   Image,
+  Icon,
   VStack,
 } from "@chakra-ui/react";
 import { useState } from "react";
 import { InfoLine } from "./InfoLine";
 import { FormCard } from "./FormCard";
-import { formatCompact, formatCurrency } from "@/utils";
+import { HiArrowLeft } from "react-icons/hi";
+import { formatCurrency, formatPercentage } from "@/utils";
 
-type Props = {
-  validator: string;
-  onBack?: () => void;
-};
-
-export function UnstakeForm({ validator, onBack }: Props) {
+export function RepayForm() {
   const [amount, setAmount] = useState("");
-  const balance = "2,340";
-  const receiveAmount = "1,150";
-  const unbondingTime = "≈ 14 hours";
+  const balance = 5561;
+  const newDebt = "2500";
+  const apr = "0.07";
 
-  const handleMaxClick = () => {
-    setAmount(balance);
-  };
 
-  const handleUnstake = () => {
-    console.log("Unstaking:", amount);
+  const handleBorrow = () => {
+    console.log("Borrowing:", amount);
   };
 
   return (
@@ -47,7 +41,7 @@ export function UnstakeForm({ validator, onBack }: Props) {
             <Input
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              placeholder="Amount to unstake"
+              placeholder="Repay amount"
               fontSize="2xl"
               fontWeight="semibold"
               border="none"
@@ -58,18 +52,18 @@ export function UnstakeForm({ validator, onBack }: Props) {
               flex={1}
               px={0}
             />
-            <Text fontSize="2xl" fontWeight="semibold" color="fg.inverted">
-              ySCSPR
+            <Text fontSize="2xl" fontWeight="bold" color="fg.inverted">
+              | cUSD
             </Text>
           </HStack>
-          <Text fontSize="xs" color="fg.inverted">
-            Balance {formatCompact(balance)} ySCSPR
+          <Text fontSize="md" color="fg.inverted">
+            Max capacity {formatCurrency(balance)}
           </Text>
         </VStack>
 
         <Image
-          src="/assets/yscspr-token-icon.svg"
-          alt="ySCSPR Token Icon"
+          src="/assets/cusd-token-icon.svg"
+          alt="cUSD Token Icon"
           w="64px"
           h="64px"
           p={2}
@@ -78,17 +72,16 @@ export function UnstakeForm({ validator, onBack }: Props) {
         />
       </HStack>
 
-      {/* Receive Amount */}
       <InfoLine
-        leftText="Receive"
+        leftText="New debt"
         rightNode={
           <HStack gap={1.5}>
             <Text fontSize="sm" color="fg">
-              {receiveAmount}
+              {newDebt}
             </Text>
             <Image
-              src="/assets/cspr-token-icon.svg"
-              alt="CSPR Token Icon"
+              src="/assets/yscspr-token-icon.svg"
+              alt="yCSPR Token Icon"
               w={4}
               h={4}
             />
@@ -96,28 +89,8 @@ export function UnstakeForm({ validator, onBack }: Props) {
         }
       />
 
-      {/* Validator */}
-      <InfoLine
-        leftText="Validator"
-        rightNode={
-          <HStack gap={2}>
-            <Image
-              src="/assets/yscpr-token-icon.svg"
-              alt="Validator Icon"
-              w={4}
-              h={4}
-            />
-            <Text fontSize="sm" color="fg" textDecoration="underline">
-              {validator}
-            </Text>
-          </HStack>
-        }
-      />
+      <InfoLine leftText="APR" rightText={formatPercentage(parseFloat(apr), 1)} />
 
-      {/* Unbonding Time */}
-      <InfoLine leftText="Unbonding takes" rightText={unbondingTime} />
-
-      {/* Unstake Button */}
       <Button
         size="xl"
         bg="primary.solid"
@@ -127,11 +100,11 @@ export function UnstakeForm({ validator, onBack }: Props) {
         borderRadius="2xl"
         mt={2}
         _hover={{ opacity: 0.9 }}
-        onClick={handleUnstake}
+        onClick={handleBorrow}
         py={7}
         w="full"
       >
-        Unstake
+        Borrow
       </Button>
     </FormCard>
   );

@@ -23,37 +23,31 @@ export function StakeTabs(props: Props) {
 
   return (
     <Tabs.Root defaultValue="stake" {...props}>
-      <Tabs.List bg="transparent" borderBottom="none" gap="4" mb={6}>
+      <Tabs.List bg="transparent">
         <Tabs.Trigger 
           value="stake"
-          fontSize="md"
-          fontWeight="semibold"
-          color="fg.default"
-          px={0}
-          pb={0}
         >
           Stake
         </Tabs.Trigger>
         <Tabs.Trigger 
           value="unstake"
-          fontSize="md"
-          fontWeight="semibold"
-          color="fg.default"
-          px={0}
-          pb={0}
         >
           Unstake
         </Tabs.Trigger>
       </Tabs.List>
-      <Tabs.Content value="stake" pt={0}>
+      <Tabs.Content value="stake">
         {stakeStep === 1 ? (
           <ChooseValidatorForm onNext={handleValidatorNext} />
         ) : (
           <StakeForm validator={selectedValidator} onBack={handleBack} />
         )}
       </Tabs.Content>
-      <Tabs.Content value="unstake" pt={0}>
-        <UnstakeForm />
+      <Tabs.Content value="unstake">
+        {stakeStep === 1 ? (
+          <ChooseValidatorForm onNext={handleValidatorNext} />
+        ) : (
+          <UnstakeForm validator={selectedValidator} onBack={handleBack} />
+        )}
       </Tabs.Content>
     </Tabs.Root>
   );

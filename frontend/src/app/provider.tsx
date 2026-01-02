@@ -1,6 +1,7 @@
 "use client";
 
 import { Provider as ThemeProvider } from "@/components/ui/provider";
+import { Toaster } from "@/components/ui/toaster";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
 
@@ -16,7 +17,10 @@ export default function Provider({ children }: Props) {
   return (
     <QueryClientProvider client={queryClient}>
       <CasperClickProvider>
-        <ThemeProvider defaultTheme="light" forcedTheme="light">{children}</ThemeProvider>
+        <ThemeProvider defaultTheme="light" forcedTheme="light">
+          {children}
+          <Toaster />
+        </ThemeProvider>
       </CasperClickProvider>
     </QueryClientProvider>
   );

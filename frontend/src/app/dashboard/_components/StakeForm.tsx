@@ -15,6 +15,7 @@ import { useState } from "react";
 import { InfoLine } from "./InfoLine";
 import { FormCard } from "./FormCard";
 import { HiArrowLeft } from "react-icons/hi";
+import { formatCompact, formatCurrency } from "@/utils";
 
 type Props = {
   validator: string;
@@ -38,20 +39,6 @@ export function StakeForm({ validator, onBack }: Props) {
 
   return (
     <FormCard>
-      {/* {onBack && (
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onBack}
-          alignSelf="flex-start"
-          color="fg.muted"
-          px={0}
-        >
-          <Icon as={HiArrowLeft} />
-          Back
-        </Button>
-      )} */}
-
       {/* Amount Input Box */}
       <HStack bg="bg.emphasized" borderRadius="3xl" p={3} position="relative">
         <VStack align="stretch" flex={1} gap={1}>
@@ -74,12 +61,12 @@ export function StakeForm({ validator, onBack }: Props) {
               flex={1}
               px={0}
             />
-            <Text fontSize="2xl" fontWeight="bold" color="fg.inverted">
-              | CSPR
+            <Text fontSize="2xl" fontWeight="semibold" color="fg.inverted">
+              CSPR
             </Text>
           </HStack>
-          <Text fontSize="md" color="fg.inverted">
-            Balance {balance} CSPR
+          <Text fontSize="xs" color="fg.inverted">
+            Balance {formatCompact(balance)} CSPR
           </Text>
         </VStack>
 
@@ -99,7 +86,7 @@ export function StakeForm({ validator, onBack }: Props) {
         leftText="Receive"
         rightNode={
           <HStack gap={1.5}>
-            <Text fontSize="sm" color="fg.default">
+            <Text fontSize="sm" color="fg">
               {receiveAmount}
             </Text>
             <Text fontSize="sm" color="primary.fg">
@@ -126,7 +113,7 @@ export function StakeForm({ validator, onBack }: Props) {
               w={4}
               h={4}
             />
-            <Text fontSize="sm" color="fg.default" textDecoration="underline">
+            <Text fontSize="sm" color="fg" textDecoration="underline">
               {validator}
             </Text>
           </HStack>

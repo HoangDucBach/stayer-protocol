@@ -107,7 +107,7 @@ export function ChooseValidatorForm({ onNext }: Props) {
           <InfoLine
             leftText="Multiplier"
             rightNode={
-              <Text fontSize="md" color="fg.default" fontWeight="semibold">
+              <Text fontSize="md" color="fg" fontWeight="semibold">
                 {multiplier}
               </Text>
             }
@@ -116,7 +116,7 @@ export function ChooseValidatorForm({ onNext }: Props) {
           <InfoLine
             leftText="APY"
             rightNode={
-              <Text fontSize="md" color="fg.default" fontWeight="semibold">
+              <Text fontSize="md" color="fg" fontWeight="semibold">
                 {apy}
               </Text>
             }
@@ -137,8 +137,6 @@ export function ChooseValidatorForm({ onNext }: Props) {
         disabled={!selectedValidator[0]}
         justifyContent={"space-between"}
         w="full"
-        minW={11}
-        h={11}
       >
         Next
         <Icon as={HiArrowRight} />

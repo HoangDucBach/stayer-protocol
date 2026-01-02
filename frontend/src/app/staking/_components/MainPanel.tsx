@@ -10,13 +10,13 @@ export function MainPanel(props: Props) {
     <Box w="full" maxW="600px" h="full" {...props}>
       <Heading size="2xl" mb={8} textAlign="center" fontWeight="bold">
         <HStack justify="center" gap={2} flexWrap="wrap">
-          <Box as="span" color="fg.default">
+          <Box as="span" color="fg">
             Stake
           </Box>
           <Box as="span" color="red.500">
             CSPR
           </Box>
-          <Box as="span" color="fg.default">
+          <Box as="span" color="fg">
             to earn
           </Box>
           <Box as="span" color="primary.fg">

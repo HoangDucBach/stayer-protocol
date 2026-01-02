@@ -1,38 +1,60 @@
 "use client";
-import { Button, Skeleton, StackProps } from "@chakra-ui/react";
-import { useClickRef } from "@make-software/csprclick-ui";
-import { useEffect } from "react";
 
-import { MenuContent, MenuRoot, MenuTrigger } from "@/components/ui/menu";
+import {
+  Button,
+  Skeleton,
+  StackProps,
+  Text,
+  VStack,
+  HStack,
+  Icon,
+  Box,
+} from "@chakra-ui/react";
+import { useClickRef } from "@make-software/csprclick-ui";
+import { useEffect, useState } from "react";
+import { HiOutlineLogout, HiOutlineClipboardCopy } from "react-icons/hi";
+
+import { MenuContent, MenuRoot, MenuTrigger, MenuItem, MenuSeparator } from "@/components/ui/menu";
 import { formatAddress } from "@/utils";
 
 interface Props extends StackProps {}
 
 export function WalletConnect(props: Props) {
   const clickRef = useClickRef();
+  const [account, setAccount] = useState(clickRef?.currentAccount || null);
 
   useEffect(() => {
-    clickRef?.on("csprclick:signed_in", async (evt) => {});
-    clickRef?.on("csprclick:signed_out", async (evt) => {
-      // update your app accordingly
-    });
-  }, [clickRef?.on]);
-  
-  if(!clickRef) {
-    return <Skeleton height="40px" width="150px" rounded={"lg"}/>;
+    if (!clickRef) return;
+
+    const handleSignIn = () => setAccount(clickRef.currentAccount);
+    const handleSignOut = () => setAccount(null);
+
+    clickRef.on("csprclick:signed_in", handleSignIn);
+    clickRef.on("csprclick:signed_out", handleSignOut);
+
+    // Cleanup listeners on unmount
+    return () => {
+      clickRef.off("csprclick:signed_in", handleSignIn);
+      clickRef.off("csprclick:signed_out", handleSignOut);
+    };
+  }, [clickRef]);
+
+  // While Click SDK is loading
+  if (!clickRef) {
+    return <Skeleton height="40px" width="150px" rounded="lg" />;
   }
-  
-  if (!clickRef.isConnected) {
+
+  // If no account connected
+  if (!account) {
     return (
       <Button
         onClick={() => {
-          if (!clickRef) {
-            console.error("clickRef is null - CSPRClick not initialized");
-            return;
+          if (!clickRef) return;
+          try {
+            clickRef.signIn();
+          } catch (err) {
+            console.error("Failed to connect wallet:", err);
           }
-
-          console.log("Connecting wallet...");
-          clickRef.signIn();
         }}
       >
         Connect wallet
@@ -40,15 +62,69 @@ export function WalletConnect(props: Props) {
     );
   }
 
+  const publicKey = account.public_key || "";
+  const accountName = account.name || "Unnamed Account";
+
   return (
-    <MenuRoot>
+    <MenuRoot >
       <MenuTrigger asChild>
         <Button>
-          {clickRef.currentAccount?.name ||
-            formatAddress(clickRef.currentAccount?.public_key || "")}
+          {accountName || formatAddress(publicKey)}
         </Button>
       </MenuTrigger>
-      <MenuContent></MenuContent>
+
+      <MenuContent>
+        <VStack align="stretch" gap={0}>
+          {/* Account Info */}
+          <Box px={4} py={3}>
+            <Text fontSize="xs" color="fg.muted" mb={1}>
+              Connected Account
+            </Text>
+            <Text fontSize="sm" fontWeight="semibold">
+              {accountName}
+            </Text>
+            <Text fontSize="xs" color="fg.muted" fontFamily="mono">
+              {formatAddress(publicKey)}
+            </Text>
+          </Box>
+
+          <MenuSeparator />
+
+          {/* Copy Address */}
+          <MenuItem
+            value="copy"
+            onClick={(e) => {
+              e.preventDefault();
+              if (publicKey) navigator.clipboard.writeText(publicKey);
+            }}
+          >
+            <HStack gap={2}>
+              <Icon as={HiOutlineClipboardCopy} />
+              <Text>Copy Address</Text>
+            </HStack>
+          </MenuItem>
+
+          <MenuSeparator />
+
+          {/* Disconnect */}
+          <MenuItem
+            value="disconnect"
+            onClick={(e) => {
+              e.preventDefault();
+              try {
+                clickRef.signOut();
+              } catch (err) {
+                console.error("Failed to disconnect wallet:", err);
+              }
+            }}
+          >
+            <HStack gap={2}>
+              <Icon as={HiOutlineLogout} />
+              <Text>Disconnect</Text>
+            </HStack>
+          </MenuItem>
+        </VStack>
+      </MenuContent>
     </MenuRoot>
   );
 }
