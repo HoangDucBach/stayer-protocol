@@ -1,6 +1,14 @@
 import { useQuery, UseQueryOptions } from "@tanstack/react-query";
 import { useClickRef } from "@make-software/csprclick-ui";
-import { HttpHandler, RpcClient } from "casper-js-sdk";
+import {
+  HttpHandler,
+  RpcClient,
+  PurseIdentifier,
+  PublicKey,
+  BidKindWrapper,
+  EraValidators,
+  ValidatorWeightAuction,
+} from "casper-js-sdk";
 
 function createRpcClient(clickRef: ReturnType<typeof useClickRef>) {
   const proxy = clickRef?.getCsprCloudProxy();
@@ -15,13 +23,11 @@ type QueryHooksOptions<TData = unknown, TError = Error> = {
   options?: Omit<UseQueryOptions<TData, TError>, "queryKey" | "queryFn">;
 };
 
-export type ValidatorBid = {
+export type ValidatorBidInfo = {
   publicKey: string;
   stakedAmount: string;
   delegationRate: number;
   inactive: boolean;
-  delegatorsCount: number;
-  totalDelegated: string;
 };
 
 export type AuctionInfo = {
@@ -31,7 +37,7 @@ export type AuctionInfo = {
     eraId: number;
     validatorWeights: { publicKey: string; weight: string }[];
   }[];
-  bids: ValidatorBid[];
+  bids: ValidatorBidInfo[];
 };
 
 export function useGetAuctionInfo({ options }: QueryHooksOptions<AuctionInfo> = {}) {
@@ -43,29 +49,24 @@ export function useGetAuctionInfo({ options }: QueryHooksOptions<AuctionInfo> = 
       if (!clickRef) throw new Error("Click ref not initialized");
 
       const rpcClient = createRpcClient(clickRef);
-      const result = await rpcClient.getStateAuctionInfo();
+      const result = await rpcClient.getLatestAuctionInfo();
 
-      const bids: ValidatorBid[] = result.auctionState.bids.map((bid) => {
-        const delegators = bid.bid.delegators || [];
-        const totalDelegated = delegators.reduce(
-          (sum, d) => sum + BigInt(d.stakedAmount?.toString() || "0"),
-          BigInt(0)
-        );
+      const bids: ValidatorBidInfo[] = result.auctionState.bids
+        .filter((bidWrapper: BidKindWrapper) => bidWrapper.bid.validator || bidWrapper.bid.unified)
+        .map((bidWrapper: BidKindWrapper) => {
+          const validator = bidWrapper.bid.validator || bidWrapper.bid.unified;
+          return {
+            publicKey: bidWrapper.publicKey?.toHex() || "",
+            stakedAmount: validator?.stakedAmount?.toString() || "0",
+            delegationRate: validator?.delegationRate || 0,
+            inactive: validator?.inactive || false,
+          };
+        });
 
-        return {
-          publicKey: bid.publicKey.toHex(),
-          stakedAmount: bid.bid.stakedAmount?.toString() || "0",
-          delegationRate: bid.bid.delegationRate || 0,
-          inactive: bid.bid.inactive || false,
-          delegatorsCount: delegators.length,
-          totalDelegated: totalDelegated.toString(),
-        };
-      });
-
-      const eraValidators = result.auctionState.eraValidators?.map((era) => ({
-        eraId: era.eraId,
-        validatorWeights: era.validatorWeights.map((v) => ({
-          publicKey: v.publicKey.toHex(),
+      const eraValidators = result.auctionState.eraValidators?.map((era: EraValidators) => ({
+        eraId: era.eraID,
+        validatorWeights: era.validatorWeights.map((v: ValidatorWeightAuction) => ({
+          publicKey: v.validator.toHex(),
           weight: v.weight.toString(),
         })),
       })) || [];
@@ -85,7 +86,7 @@ export function useGetAuctionInfo({ options }: QueryHooksOptions<AuctionInfo> = 
 
 export function useGetValidatorBid(
   publicKey: string,
-  { options }: QueryHooksOptions<ValidatorBid | null> = {}
+  { options }: QueryHooksOptions<ValidatorBidInfo | null> = {}
 ) {
   const clickRef = useClickRef();
 
@@ -95,38 +96,29 @@ export function useGetValidatorBid(
       if (!clickRef) throw new Error("Click ref not initialized");
 
       const rpcClient = createRpcClient(clickRef);
-      const result = await rpcClient.getStateAuctionInfo();
+      const result = await rpcClient.getLatestAuctionInfo();
 
-      const bid = result.auctionState.bids.find(
-        (b) => b.publicKey.toHex().toLowerCase() === publicKey.toLowerCase()
+      const bidWrapper = result.auctionState.bids.find(
+        (b: BidKindWrapper) => b.publicKey?.toHex().toLowerCase() === publicKey.toLowerCase()
       );
 
-      if (!bid) return null;
+      if (!bidWrapper) return null;
 
-      const delegators = bid.bid.delegators || [];
-      const totalDelegated = delegators.reduce(
-        (sum, d) => sum + BigInt(d.stakedAmount?.toString() || "0"),
-        BigInt(0)
-      );
+      const validator = bidWrapper.bid.validator || bidWrapper.bid.unified;
+      if (!validator) return null;
 
       return {
-        publicKey: bid.publicKey.toHex(),
-        stakedAmount: bid.bid.stakedAmount?.toString() || "0",
-        delegationRate: bid.bid.delegationRate || 0,
-        inactive: bid.bid.inactive || false,
-        delegatorsCount: delegators.length,
-        totalDelegated: totalDelegated.toString(),
-      } as ValidatorBid;
+        publicKey: bidWrapper.publicKey?.toHex() || "",
+        stakedAmount: validator.stakedAmount?.toString() || "0",
+        delegationRate: validator.delegationRate || 0,
+        inactive: validator.inactive || false,
+      } as ValidatorBidInfo;
     },
     enabled: !!clickRef && !!publicKey,
     staleTime: 60000,
     ...options,
   });
 }
-
-export type EraInfo = {
-  eraId: number;
-};
 
 export function useGetCurrentEra({ options }: QueryHooksOptions<number> = {}) {
   const clickRef = useClickRef();
@@ -137,12 +129,12 @@ export function useGetCurrentEra({ options }: QueryHooksOptions<number> = {}) {
       if (!clickRef) throw new Error("Click ref not initialized");
 
       const rpcClient = createRpcClient(clickRef);
-      const result = await rpcClient.getStateAuctionInfo();
+      const result = await rpcClient.getLatestAuctionInfo();
 
       const eraValidators = result.auctionState.eraValidators || [];
       if (eraValidators.length === 0) return 0;
 
-      return Math.max(...eraValidators.map((e) => e.eraId));
+      return Math.max(...eraValidators.map((e: EraValidators) => e.eraID));
     },
     enabled: !!clickRef,
     staleTime: 30000,
@@ -156,18 +148,20 @@ export type AccountBalance = {
 };
 
 export function useGetAccountBalance(
-  publicKey: string,
+  publicKeyHex: string,
   { options }: QueryHooksOptions<AccountBalance> = {}
 ) {
   const clickRef = useClickRef();
 
   return useQuery({
-    queryKey: ["casper", "account-balance", publicKey],
+    queryKey: ["casper", "account-balance", publicKeyHex],
     queryFn: async () => {
       if (!clickRef) throw new Error("Click ref not initialized");
 
       const rpcClient = createRpcClient(clickRef);
-      const result = await rpcClient.getAccountBalance(publicKey);
+      const pubKey = PublicKey.fromHex(publicKeyHex);
+      const purseIdentifier = PurseIdentifier.fromPublicKey(pubKey);
+      const result = await rpcClient.queryLatestBalance(purseIdentifier);
 
       const balance = result.balance?.toString() || "0";
       const balanceBigInt = BigInt(balance);
@@ -178,12 +172,12 @@ export function useGetAccountBalance(
         balanceFormatted: formatted,
       } as AccountBalance;
     },
-    enabled: !!clickRef && !!publicKey,
+    enabled: !!clickRef && !!publicKeyHex,
     ...options,
   });
 }
 
-export function useGetLatestBlockInfo({ options }: QueryHooksOptions<{ height: number; hash: string; timestamp: string }> = {}) {
+export function useGetLatestBlockInfo({ options }: QueryHooksOptions<{ height: number; hash: string; eraId: number; timestamp: string }> = {}) {
   const clickRef = useClickRef();
 
   return useQuery({
@@ -195,9 +189,10 @@ export function useGetLatestBlockInfo({ options }: QueryHooksOptions<{ height: n
       const result = await rpcClient.getLatestBlock();
 
       return {
-        height: result.block?.header?.height || 0,
+        height: result.block?.height || 0,
         hash: result.block?.hash?.toHex() || "",
-        timestamp: result.block?.header?.timestamp?.toString() || "",
+        eraId: result.block?.eraID || 0,
+        timestamp: result.block?.timestamp?.toString() || "",
       };
     },
     enabled: !!clickRef,
