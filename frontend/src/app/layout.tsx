@@ -22,10 +22,8 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${rubik.className}`}>
-        <div id="root">
-          <Provider>
-            {children}
-          </Provider>
+        <div id="root" style={{ height: "100%", width: "100%" }}>
+          <Provider>{children}</Provider>
         </div>
       </body>
     </html>

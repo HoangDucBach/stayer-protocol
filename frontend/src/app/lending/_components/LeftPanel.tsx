@@ -1,4 +1,4 @@
-import { LendingMarket } from "@/app/dashboard/_components/LendingMarket";
+import { LendingMarket } from "@/app/(dashboard)/_components/LendingMarket";
 import { StackProps, VStack } from "@chakra-ui/react";
 import { PositionCard } from "./PositionCard";
 

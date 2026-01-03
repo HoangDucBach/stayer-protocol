@@ -1,7 +1,7 @@
 "use client";
 
 import { Box, BoxProps, Heading, HStack } from "@chakra-ui/react";
-import { BorrowWidget } from "../../dashboard/_components/BorrowWidget";
+import { BorrowWidget } from "../../(dashboard)/_components/BorrowWidget";
 
 type Props = BoxProps;
 

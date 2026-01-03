@@ -1,5 +1,7 @@
 import Image from "next/image";
 import dynamic from "next/dynamic";
+import { Stack, VStack } from "@chakra-ui/react";
+import { HeroSection } from "./_sections/HeroSection";
 
 const WalletConnect = dynamic(
   () =>
@@ -11,8 +13,8 @@ const WalletConnect = dynamic(
 
 export default function Home() {
   return (
-    <div>
-      
-    </div>
+    <VStack w={"full"} h={"full"}>
+      <HeroSection />
+    </VStack>
   );
 }

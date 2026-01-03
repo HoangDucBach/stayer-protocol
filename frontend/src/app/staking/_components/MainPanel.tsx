@@ -1,7 +1,7 @@
 "use client";
 
 import { Box, BoxProps, Heading, HStack } from "@chakra-ui/react";
-import { StakeTabs } from "../../dashboard/_components/StakeWidget";
+import { StakeTabs } from "../../(dashboard)/_components/StakeWidget";
 
 type Props = BoxProps;
 

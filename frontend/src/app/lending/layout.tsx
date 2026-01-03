@@ -1,5 +1,5 @@
 import { VStack } from "@chakra-ui/react";
-import { Header } from "../dashboard/_components/Header";
+import { Header } from "../(dashboard)/_components/Header";
 import { Metadata } from "next";
 
 export const metadata: Metadata = {

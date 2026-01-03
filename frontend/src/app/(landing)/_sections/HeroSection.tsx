@@ -1,0 +1,60 @@
+"use client";
+
+import { LinkButton } from "@/components/ui/link-button";
+import {
+  Center,
+  chakra,
+  Heading,
+  HStack,
+  HTMLChakraProps,
+  Image,
+  Stack,
+  Text,
+  VStack,
+} from "@chakra-ui/react";
+import { Header } from "../_components/Header";
+import { Logo } from "@/components/globals/Logo";
+
+interface Props extends HTMLChakraProps<"section"> {}
+export function HeroSection({ children, ...rest }: Props) {
+  return (
+    <chakra.section w={"full"} h={"96 vh"} {...rest}>
+      <HStack w={"full"} h={"full"} align={"start"} gap={"8"}>
+        <Center w={"fit"} h={"full"}>
+          <Image
+            h={"full"}
+            aspectRatio={"576/781"}
+            rounded={"4xl"}
+            src="/assets/stayer-primary-poster.png"
+          />
+        </Center>
+        <VStack w={"full"} align={"start"} justify={"center"} flex={1}>
+          <Header />
+          <VStack align={"start"} gap={"4"} justify={"center"} flexGrow={1}>
+            <Heading as="h1" size="6xl" fontWeight={"bold"}>
+              Stake Smart, <br />
+              Earn More
+            </Heading>
+            <Text color={"fg.subtle"} maxW={"3/4"}>
+              Liquid staking protocol on Casper Network with performance-based
+              rewards & USD borrowing
+            </Text>
+            <LinkButton href="/dashboard">Explore</LinkButton>
+          </VStack>
+          <HStack w={"full"} align={"center"} gap={"8"}>
+            <Logo
+              size={"lg"}
+              nameProps={{
+                fontWeight: "bold",
+                fontSize: ["5xl", "6xl"],
+              }}
+            />
+            <Heading as="h6" size="sm" fontWeight={"normal"}>
+              Liquid Staking Protocol & <br /> Stablecoin
+            </Heading>
+          </HStack>
+        </VStack>
+      </HStack>
+    </chakra.section>
+  );
+}
