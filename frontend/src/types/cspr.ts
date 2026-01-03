@@ -31,6 +31,14 @@ export type Validator = {
   delegators_stake: string;
   delegators_change: number | null;
   performance: number | null;
+  bid_amount?: string;
+  reserved_slots?: number;
+  minimum_delegation_amount?: string;
+  maximum_delegation_amount?: string | null;
+  delegators?: Delegation[];
+  account_info?: AccountInfo;
+  centralized_account_info?: Record<string, any>;
+  cspr_name?: string;
 };
 
 // ============ Validator Performance ============
@@ -71,6 +79,8 @@ export type Account = {
   staked_balance: string | null;
   rewards: string | null;
   is_system: boolean;
+  delegations?: Delegation[];
+  unbonding_delegations?: Delegation[];
 };
 
 // ============ Account Info ============
@@ -79,6 +89,10 @@ export type AccountInfo = {
   account_hash: string;
   url: string;
   is_verified: boolean;
+  deploy_hash?: string;
+  verified_account_hashes?: string[];
+  created?: string;
+  updated?: string;
   info: {
     owner?: {
       name?: string;
@@ -143,41 +157,18 @@ export type Block = {
   deploy_count: number;
   transfer_count: number;
   is_switch_block: boolean;
+  deploys?: Deploy[];
+  transfers?: Transfer[];
 };
 
 // ============ Auction Metrics ============
 
 export type AuctionMetrics = {
-  // Current era ID (API returns as either era_id or current_era_id)
-  era_id: number;
-  current_era_id?: number;
-  // Validator counts
-  active_validator_number?: number;
-  validators_count?: number;
-  validators_count_change?: number;
-  // Bidder counts
-  total_bids_number?: number;
-  active_bids_number?: number;
-  bidders_count?: number;
-  bidders_count_change?: number;
-  // Stakes
-  total_active_era_stake?: string;
-  total_stake?: string;
-  total_stake_change?: string;
-  active_validators_stake?: string;
-  active_validators_stake_change?: string;
-  total_bid?: string;
-  total_bid_change?: string;
-  // Performance
-  average_performance?: number | null;
-  average_performance_change?: number | null;
-  // Delegators
-  delegators_count?: number;
-  delegators_count_change?: number;
-  // Auction
-  auction_price?: string;
-  auction_price_change?: string;
-  era_rewards?: string | null;
+  current_era_id: number;
+  active_validator_number: number;
+  total_bids_number: number;
+  active_bids_number: number;
+  total_active_era_stake: string;
 };
 
 // ============ CSPR Rate ============
@@ -205,6 +196,8 @@ export type Delegation = {
   validator_public_key: string;
   stake: string;
   bonding_purse: string;
+  validator?: Validator;
+  delegator?: Account;
 };
 
 // ============ Deploy ============
@@ -225,6 +218,8 @@ export type Deploy = {
   gas_price?: number;
   ttl?: string;
   chain_name?: string;
+  raw_args?: string;
+  type?: string;
 };
 
 // ============ Transfer ============
@@ -240,6 +235,13 @@ export type Transfer = {
   id: number | null;
   timestamp: string;
   to_purse: string | null;
+  initiator_public_key?: string;
+  from_purse_public_key?: string | null;
+  to_purse_public_key?: string | null;
+  to_account_info?: AccountInfo;
+  to_centralized_account_info?: any;
+  from_purse_account_info?: AccountInfo;
+  from_purse_centralized_account_info?: any;
 };
 
 // ============ Bidder ============
@@ -264,40 +266,31 @@ export type Bidder = {
 export type Contract = {
   contract_hash: string;
   contract_package_hash: string;
-  contract_wasm_hash: string;
-  named_keys: { name: string; key: string }[];
-  entry_points: {
-    name: string;
-    args: { name: string; type: string; optional: boolean }[];
-    ret: string;
-    access: string;
-    entry_point_type: string;
-  }[];
-  protocol_version: string;
+  deploy_hash: string;
+  contract_type_id: number | null;
+  contract_version: number;
+  contract_name: string | null;
+  is_disabled: boolean;
   timestamp: string;
+  // Includes
+  contract_package?: ContractPackage;
 };
 
 // ============ Contract Package ============
 
 export type ContractPackage = {
   contract_package_hash: string;
-  owner_public_key: string;
-  access_key: string;
-  versions: {
-    contract_hash: string;
-    contract_version: number;
-    protocol_version_major: number;
-  }[];
-  disabled_versions: {
-    contract_hash: string;
-    contract_version: number;
-    protocol_version_major: number;
-  }[];
-  groups: {
-    group: string;
-    keys: string[];
-  }[];
+  owner_public_key: string | null;
+  owner_hash: string;
+  name: string | null;
+  description: string | null;
+  icon_url: string | null;
+  website_url: string | null;
+  latest_version_contract_type_id: number | null;
   timestamp: string;
+  metadata?: Record<string, any>;
+  // Includes
+  contracts?: Contract[];
 };
 
 // ============ NFT ============
@@ -311,6 +304,7 @@ export type NftToken = {
   off_chain_metadata: Record<string, unknown> | null;
   burn: boolean;
   timestamp: string;
+  metadata_json?: string;
 };
 
 // ============ Fungible Token / ERC20 ============
@@ -343,6 +337,7 @@ export type AccountQueryParams = {
   order_direction?: "ASC" | "DESC";
   account_hash?: string;
   public_key?: string;
+  includes?: string;
 };
 
 export type BlocksQueryParams = {
@@ -353,6 +348,7 @@ export type BlocksQueryParams = {
   proposer?: string;
   era_id?: number;
   hash?: string;
+  includes?: string;
 };
 
 export type DeploysQueryParams = {
@@ -363,6 +359,7 @@ export type DeploysQueryParams = {
   caller_public_key?: string;
   block_hash?: string;
   deploy_hash?: string;
+  includes?: string;
 };
 
 export type ContractsQueryParams = {

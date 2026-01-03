@@ -1,85 +1,127 @@
+"use client";
+
 import { useQuery, UseQueryOptions } from "@tanstack/react-query";
+import { csprApiClient } from "@/libs/cspr-cloud";
 import {
   Account,
   AuctionMetrics,
   Block,
   Validator,
+  PaginatedResponse,
+  SingleResponse,
+  ValidatorsQueryParams,
+  BlocksQueryParams,
+  Delegation,
+  DelegatorReward,
+  ValidatorReward,
 } from "@/types/cspr";
 
-// Re-export for backward compatibility
-export type { Validator, Account, Block, AuctionMetrics } from "@/types/cspr";
+// Re-export types for convenience
+export type {
+  Account,
+  AuctionMetrics,
+  Block,
+  Validator,
+  Delegation,
+  DelegatorReward,
+  ValidatorReward,
+  PaginatedResponse,
+  SingleResponse,
+} from "@/types/cspr";
 
-// ============ Types ============
+// ============ Common Types ============
 
-type QueryHooksOptions<TData = unknown, TError = Error> = {
-  options?: Omit<UseQueryOptions<TData, TError>, "queryKey" | "queryFn">;
+type HookOptions<TData = unknown, TError = Error> = Omit<
+  UseQueryOptions<TData, TError>,
+  "queryKey" | "queryFn"
+>;
+
+// ============ Validators ============
+
+export type ValidatorsPayload = ValidatorsQueryParams & {
+  includes?: string; // e.g. "account_info,average_performance,cspr_name"
 };
 
-export type ValidatorsResponse = {
-  data: Validator[];
-  item_count: number;
-  page_count: number;
-  era_id: number;
-};
+export function useGetValidators(
+  payload: ValidatorsPayload = {},
+  options?: HookOptions<PaginatedResponse<Validator>>
+) {
+  const {
+    era_id,
+    public_key,
+    is_active,
+    page = 1,
+    page_size = 100,
+    order_by = "total_stake",
+    order_direction = "DESC",
+    includes,
+  } = payload;
 
-export type EraResponse = {
-  currentEra: number;
-  auctionMetrics: AuctionMetrics;
-};
-
-export type AccountResponse = Account & {
-  balanceFormatted: string;
-};
-
-export type BlockResponse = Block;
-
-// ============ API Fetchers ============
-
-async function fetchFromAPI<T>(endpoint: string): Promise<T> {
-  const response = await fetch(endpoint);
-  const json = await response.json();
-
-  if (!response.ok) {
-    throw new Error(json.error || "API Error");
-  }
-
-  return json.data;
-}
-
-// ============ Validators Hooks ============
-
-// Get all validators for the current era
-export function useGetValidators({
-  options,
-}: QueryHooksOptions<ValidatorsResponse> = {}) {
   return useQuery({
-    queryKey: ["casper", "validators"],
+    queryKey: ["casper", "validators", payload],
     queryFn: async () => {
-      const response = await fetch("/api/casper/validators");
-      const json = await response.json();
-      if (!response.ok) throw new Error(json.error || "API Error");
-      return json as ValidatorsResponse;
+      // If no era_id, get current era first
+      let eraId = era_id;
+      if (!eraId) {
+        const auctionRes = await csprApiClient.get<SingleResponse<AuctionMetrics>>(
+          "/auction-metrics"
+        );
+        eraId = auctionRes.data.data.current_era_id;
+      }
+      console.log("Current Era ID:", eraId);
+      const params: Record<string, any> = {
+        era_id: eraId,
+        page,
+        page_size,
+        order_by,
+        order_direction,
+      };
+
+      if (public_key) params.public_key = public_key;
+      if (is_active !== undefined) params.is_active = is_active;
+      if (includes) params.includes = includes;
+
+      const result = await csprApiClient.get<PaginatedResponse<Validator>>(
+        "/validators",
+        { params }
+      );
+
+      return result.data;
     },
     staleTime: 60000,
     ...options,
   });
 }
 
-// Get single validator by public key
 export function useGetValidator(
   publicKey: string,
-  { options }: QueryHooksOptions<Validator | null> = {}
+  payload: Omit<ValidatorsPayload, "public_key"> = {},
+  options?: HookOptions<Validator | null>
 ) {
   return useQuery({
-    queryKey: ["casper", "validator", publicKey],
+    queryKey: ["casper", "validator", publicKey, payload],
     queryFn: async () => {
-      const response = await fetch(
-        `/api/casper/validators?public_key=${publicKey}`
+      // Get current era if not provided
+      let eraId = payload.era_id;
+      if (!eraId) {
+        const auctionRes = await csprApiClient.get<SingleResponse<AuctionMetrics>>(
+          "/auction-metrics"
+        );
+        eraId = auctionRes.data.data.current_era_id;
+      }
+
+      const params: Record<string, any> = {
+        era_id: eraId,
+        public_key: publicKey,
+      };
+      if (payload.includes) params.includes = payload.includes;
+
+      const result = await csprApiClient.get<PaginatedResponse<Validator>>(
+        "/validators",
+        { params }
       );
-      const json = await response.json();
-      if (!response.ok) throw new Error(json.error || "API Error");
-      const validators = json.data as Validator[];
-      return validators.length > 0 ? validators[0] : null;
+
+      return result.data.data.length > 0 ? result.data.data[0] : null;
     },
     enabled: !!publicKey,
     staleTime: 60000,
@@ -87,72 +129,232 @@ export function useGetValidator(
   });
 }
 
-// ============ Era Hooks ============
+// ============ Auction Metrics / Era ============
 
-export function useGetCurrentEra({ options }: QueryHooksOptions<number> = {}) {
-  return useQuery({
-    queryKey: ["casper", "current-era"],
-    queryFn: async () => {
-      const data = await fetchFromAPI<EraResponse>("/api/casper/era");
-      return data.currentEra;
-    },
-    staleTime: 30000,
-    ...options,
-  });
-}
-
-export function useGetAuctionMetrics({
-  options,
-}: QueryHooksOptions<AuctionMetrics> = {}) {
+export function useGetAuctionMetrics(
+  options?: HookOptions<AuctionMetrics>
+) {
   return useQuery({
     queryKey: ["casper", "auction-metrics"],
     queryFn: async () => {
-      const data = await fetchFromAPI<EraResponse>("/api/casper/era");
-      return data.auctionMetrics;
+      const result = await csprApiClient.get<SingleResponse<AuctionMetrics>>(
+        "/auction-metrics"
+      );
+      return result.data.data;
     },
     staleTime: 30000,
     ...options,
   });
 }
 
-// ============ Account Hooks ============
+export function useGetCurrentEra(options?: HookOptions<number>) {
+  return useQuery({
+    queryKey: ["casper", "current-era"],
+    queryFn: async () => {
+      const result = await csprApiClient.get<SingleResponse<AuctionMetrics>>(
+        "/auction-metrics"
+      );
+      return result.data.data.current_era_id;
+    },
+    staleTime: 30000,
+    ...options,
+  });
+}
+
+// ============ Account ============
+
+export type AccountPayload = {
+  includes?: string; // e.g. "delegations,unbonding_delegations"
+};
 
 export function useGetAccount(
-  publicKey: string,
-  { options }: QueryHooksOptions<AccountResponse | null> = {}
+  accountIdentifier: string, // public_key or account_hash
+  payload: AccountPayload = {},
+  options?: HookOptions<Account | null>
 ) {
   return useQuery({
-    queryKey: ["casper", "account", publicKey],
+    queryKey: ["casper", "account", accountIdentifier, payload],
     queryFn: async () => {
       try {
-        return await fetchFromAPI<AccountResponse>(
-          `/api/casper/account?public_key=${publicKey}`
+        const params: Record<string, any> = {};
+        if (payload.includes) params.includes = payload.includes;
+
+        const result = await csprApiClient.get<SingleResponse<Account>>(
+          `/accounts/${accountIdentifier}`,
+          { params }
         );
+        return result.data.data;
       } catch {
         return null;
       }
     },
-    enabled: !!publicKey,
+    enabled: !!accountIdentifier,
     staleTime: 30000,
     ...options,
   });
 }
 
-// Alias for backward compatibility
-export const useGetAccountBalance = useGetAccount;
+// Helper to format balance
+export function formatBalance(balance: string): string {
+  const balanceBigInt = BigInt(balance || "0");
+  return (Number(balanceBigInt) / 1e9).toFixed(4);
+}
 
-// ============ Block Hooks ============
+// ============ Block ============
 
-export function useGetLatestBlock({
-  options,
-}: QueryHooksOptions<BlockResponse> = {}) {
+export type BlockPayload = BlocksQueryParams;
+
+export function useGetBlocks(
+  payload: BlockPayload = {},
+  options?: HookOptions<PaginatedResponse<Block>>
+) {
+  const {
+    page = 1,
+    page_size = 10,
+    order_by = "block_height",
+    order_direction = "DESC",
+    proposer,
+    era_id,
+    hash,
+    includes,
+  } = payload;
+
   return useQuery({
-    queryKey: ["casper", "latest-block"],
-    queryFn: () => fetchFromAPI<BlockResponse>("/api/casper/block"),
+    queryKey: ["casper", "blocks", payload],
+    queryFn: async () => {
+      const params: Record<string, any> = {
+        page,
+        page_size,
+        order_by,
+        order_direction,
+      };
+
+      if (proposer) params.proposer_public_key = proposer;
+      if (era_id) params.era_id = era_id;
+      if (hash) params.block_hash = hash;
+      if (includes) params.includes = includes;
+
+      const result = await csprApiClient.get<PaginatedResponse<Block>>(
+        "/blocks",
+        { params }
+      );
+      return result.data;
+    },
     staleTime: 10000,
     ...options,
   });
 }
 
-// Alias for backward compatibility
-export const useGetLatestBlockInfo = useGetLatestBlock;
+export function useGetLatestBlock(
+  payload: Omit<BlockPayload, "page" | "page_size"> = {},
+  options?: HookOptions<Block | null>
+) {
+  return useQuery({
+    queryKey: ["casper", "latest-block", payload],
+    queryFn: async () => {
+      const params: Record<string, any> = {
+        page: 1,
+        page_size: 1,
+        order_by: "block_height",
+        order_direction: "DESC",
+      };
+
+      if (payload.includes) params.includes = payload.includes;
+
+      const result = await csprApiClient.get<PaginatedResponse<Block>>(
+        "/blocks",
+        { params }
+      );
+
+      return result.data.data.length > 0 ? result.data.data[0] : null;
+    },
+    staleTime: 10000,
+    ...options,
+  });
+}
+
+// ============ Delegations ============
+
+export type DelegationsPayload = {
+  page?: number;
+  page_size?: number;
+  validator_public_key?: string;
+  includes?: string; // e.g. "validator,delegator"
+};
+
+export function useGetAccountDelegations(
+  publicKey: string,
+  payload: DelegationsPayload = {},
+  options?: HookOptions<PaginatedResponse<Delegation>>
+) {
+  const { page = 1, page_size = 100, validator_public_key, includes } = payload;
+
+  return useQuery({
+    queryKey: ["casper", "account-delegations", publicKey, payload],
+    queryFn: async () => {
+      const params: Record<string, any> = { page, page_size };
+      if (validator_public_key) params.validator_public_key = validator_public_key;
+      if (includes) params.includes = includes;
+
+      const result = await csprApiClient.get<PaginatedResponse<Delegation>>(
+        `/accounts/${publicKey}/delegations`,
+        { params }
+      );
+      return result.data;
+    },
+    enabled: !!publicKey,
+    staleTime: 60000,
+    ...options,
+  });
+}
+
+// ============ Rewards ============
+
+export type RewardsPayload = {
+  page?: number;
+  page_size?: number;
+};
+
+export function useGetDelegatorRewards(
+  publicKey: string,
+  payload: RewardsPayload = {},
+  options?: HookOptions<PaginatedResponse<DelegatorReward>>
+) {
+  const { page = 1, page_size = 100 } = payload;
+
+  return useQuery({
+    queryKey: ["casper", "delegator-rewards", publicKey, payload],
+    queryFn: async () => {
+      const result = await csprApiClient.get<PaginatedResponse<DelegatorReward>>(
+        `/delegators/${publicKey}/rewards`,
+        { params: { page, page_size } }
+      );
+      return result.data;
+    },
+    enabled: !!publicKey,
+    staleTime: 60000,
+    ...options,
+  });
+}
+
+export function useGetValidatorRewards(
+  publicKey: string,
+  payload: RewardsPayload = {},
+  options?: HookOptions<PaginatedResponse<ValidatorReward>>
+) {
+  const { page = 1, page_size = 100 } = payload;
+
+  return useQuery({
+    queryKey: ["casper", "validator-rewards", publicKey, payload],
+    queryFn: async () => {
+      const result = await csprApiClient.get<PaginatedResponse<ValidatorReward>>(
+        `/validators/${publicKey}/rewards`,
+        { params: { page, page_size } }
+      );
+      return result.data;
+    },
+    enabled: !!publicKey,
+    staleTime: 60000,
+    ...options,
+  });
+}

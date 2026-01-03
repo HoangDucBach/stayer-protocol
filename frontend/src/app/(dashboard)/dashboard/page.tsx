@@ -1,10 +1,11 @@
-import { ProtectedContent } from "@/app/_components/ProtectedContent";
 import { HStack } from "@chakra-ui/react";
 import { ValidatorList } from "./_components/ValidatorList";
+import { MarketOverviewBoard } from "./_components/MarketOverviewBoard";
 
 export default function Page() {
   return (
-    <HStack>
+    <HStack w={"full"} height={"full"} gap={"4"} p={"4"}>
+      <MarketOverviewBoard />
       <ValidatorList />
     </HStack>
   );

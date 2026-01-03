@@ -1,10 +1,11 @@
+import { HStack, VStack } from "@chakra-ui/react";
 import { Header } from "../_components/Header";
 
 export default function Layout({ children }: React.PropsWithChildren) {
   return (
-    <div>
+    <VStack w="full" h={"full"}>
       <Header />
       {children}
-    </div>
+    </VStack>
   );
 }
