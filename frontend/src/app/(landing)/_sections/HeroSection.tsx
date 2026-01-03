@@ -18,7 +18,7 @@ import { Logo } from "@/components/globals/Logo";
 interface Props extends HTMLChakraProps<"section"> {}
 export function HeroSection({ children, ...rest }: Props) {
   return (
-    <chakra.section w={"full"} h={"96 vh"} {...rest}>
+    <chakra.section w={"full"} h={"96vh"} {...rest}>
       <HStack w={"full"} h={"full"} align={"start"} gap={"8"}>
         <Center w={"fit"} h={"full"}>
           <Image

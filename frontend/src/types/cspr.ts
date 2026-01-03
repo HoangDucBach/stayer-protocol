@@ -1,4 +1,4 @@
-// CSPR.cloud REST API Types
+// CSPR.cloud REST API Types (1:1 Mapping)
 // Reference: https://docs.cspr.cloud/rest-api/reference
 
 // ============ Common Types ============
@@ -16,7 +16,7 @@ export type SingleResponse<T> = {
 
 // ============ Validator ============
 
-export type ValidatorAPI = {
+export type Validator = {
   public_key: string;
   era_id: number;
   rank: number;
@@ -33,56 +33,36 @@ export type ValidatorAPI = {
   performance: number | null;
 };
 
-export type Validator = {
-  publicKey: string;
-  eraId: number;
-  rank: number;
-  isActive: boolean;
-  fee: number;
-  feeChange: number | null;
-  totalStake: string;
-  selfStake: string;
-  selfShare: number;
-  networkShare: number;
-  delegatorsNumber: number;
-  delegatorsStake: string;
-  delegatorsChange: number | null;
-  performance: number | null;
-};
-
 // ============ Validator Performance ============
 
-export type ValidatorPerformanceAPI = {
+export type ValidatorPerformance = {
   public_key: string;
   era_id: number;
   score: number;
 };
 
-export type ValidatorPerformance = {
-  publicKey: string;
-  eraId: number;
-  score: number;
-};
-
 // ============ Validator Reward ============
 
-export type ValidatorRewardAPI = {
+export type ValidatorReward = {
   public_key: string;
   era_id: number;
   amount: string;
   timestamp: string;
 };
 
-export type ValidatorReward = {
-  publicKey: string;
-  eraId: number;
+// ============ Delegator Reward ============
+
+export type DelegatorReward = {
+  delegator_public_key: string;
+  validator_public_key: string;
+  era_id: number;
   amount: string;
   timestamp: string;
 };
 
 // ============ Account ============
 
-export type AccountAPI = {
+export type Account = {
   public_key: string;
   account_hash: string;
   balance: string;
@@ -93,20 +73,9 @@ export type AccountAPI = {
   is_system: boolean;
 };
 
-export type Account = {
-  publicKey: string;
-  accountHash: string;
-  balance: string;
-  totalBalance: string;
-  availableBalance: string;
-  stakedBalance: string | null;
-  rewards: string | null;
-  isSystem: boolean;
-};
-
 // ============ Account Info ============
 
-export type AccountInfoAPI = {
+export type AccountInfo = {
   account_hash: string;
   url: string;
   is_verified: boolean;
@@ -162,11 +131,9 @@ export type AccountInfoAPI = {
   };
 };
 
-export type AccountInfo = AccountInfoAPI;
-
 // ============ Block ============
 
-export type BlockAPI = {
+export type Block = {
   hash: string;
   height: number;
   era_id: number;
@@ -178,79 +145,52 @@ export type BlockAPI = {
   is_switch_block: boolean;
 };
 
-export type Block = {
-  hash: string;
-  height: number;
-  eraId: number;
-  timestamp: string;
-  proposer: string;
-  stateRootHash: string;
-  deployCount: number;
-  transferCount: number;
-  isSwitchBlock: boolean;
-};
-
 // ============ Auction Metrics ============
 
-export type AuctionMetricsAPI = {
-  era_id: number;
-  validators_count: number;
-  validators_count_change: number;
-  bidders_count: number;
-  bidders_count_change: number;
-  total_stake: string;
-  total_stake_change: string;
-  active_validators_stake: string;
-  active_validators_stake_change: string;
-  total_bid: string;
-  total_bid_change: string;
-  average_performance: number | null;
-  average_performance_change: number | null;
-  delegators_count: number;
-  delegators_count_change: number;
-  auction_price: string;
-  auction_price_change: string;
-  era_rewards: string | null;
-};
-
 export type AuctionMetrics = {
-  eraId: number;
-  validatorsCount: number;
-  validatorsCountChange: number;
-  biddersCount: number;
-  biddersCountChange: number;
-  totalStake: string;
-  totalStakeChange: string;
-  activeValidatorsStake: string;
-  activeValidatorsStakeChange: string;
-  totalBid: string;
-  totalBidChange: string;
-  averagePerformance: number | null;
-  averagePerformanceChange: number | null;
-  delegatorsCount: number;
-  delegatorsCountChange: number;
-  auctionPrice: string;
-  auctionPriceChange: string;
-  eraRewards: string | null;
+  // Current era ID (API returns as either era_id or current_era_id)
+  era_id: number;
+  current_era_id?: number;
+  // Validator counts
+  active_validator_number?: number;
+  validators_count?: number;
+  validators_count_change?: number;
+  // Bidder counts
+  total_bids_number?: number;
+  active_bids_number?: number;
+  bidders_count?: number;
+  bidders_count_change?: number;
+  // Stakes
+  total_active_era_stake?: string;
+  total_stake?: string;
+  total_stake_change?: string;
+  active_validators_stake?: string;
+  active_validators_stake_change?: string;
+  total_bid?: string;
+  total_bid_change?: string;
+  // Performance
+  average_performance?: number | null;
+  average_performance_change?: number | null;
+  // Delegators
+  delegators_count?: number;
+  delegators_count_change?: number;
+  // Auction
+  auction_price?: string;
+  auction_price_change?: string;
+  era_rewards?: string | null;
 };
 
 // ============ CSPR Rate ============
 
-export type CSPRRateAPI = {
-  currency_id: string;
-  rate: string;
-  created: string;
-};
-
 export type CSPRRate = {
-  currencyId: string;
+  currency_id: string;
   rate: string;
   created: string;
 };
 
 // ============ CSPR Supply ============
 
-export type CSPRSupplyAPI = {
+export type CSPRSupply = {
   total: string;
   circulating: string;
   staked: string;
@@ -258,33 +198,18 @@ export type CSPRSupplyAPI = {
   timestamp: string;
 };
 
-export type CSPRSupply = {
-  total: string;
-  circulating: string;
-  staked: string;
-  stakedDifferingFromCirculating: string;
-  timestamp: string;
-};
-
 // ============ Delegation ============
 
-export type DelegationAPI = {
+export type Delegation = {
   public_key: string;
   validator_public_key: string;
   stake: string;
   bonding_purse: string;
 };
 
-export type Delegation = {
-  publicKey: string;
-  validatorPublicKey: string;
-  stake: string;
-  bondingPurse: string;
-};
-
 // ============ Deploy ============
 
-export type DeployAPI = {
+export type Deploy = {
   deploy_hash: string;
   block_hash: string;
   caller_public_key: string;
@@ -297,26 +222,14 @@ export type DeployAPI = {
   timestamp: string;
   status: string;
   args: Record<string, unknown> | null;
-};
-
-export type Deploy = {
-  deployHash: string;
-  blockHash: string;
-  callerPublicKey: string;
-  executionTypeId: number;
-  contractHash: string | null;
-  contractPackageHash: string | null;
-  cost: string;
-  paymentAmount: string;
-  errorMessage: string | null;
-  timestamp: string;
-  status: string;
-  args: Record<string, unknown> | null;
+  gas_price?: number;
+  ttl?: string;
+  chain_name?: string;
 };
 
 // ============ Transfer ============
 
-export type TransferAPI = {
+export type Transfer = {
   deploy_hash: string;
   block_hash: string;
   from_public_key: string | null;
@@ -329,22 +242,9 @@ export type TransferAPI = {
   to_purse: string | null;
 };
 
-export type Transfer = {
-  deployHash: string;
-  blockHash: string;
-  fromPublicKey: string | null;
-  fromAccountHash: string | null;
-  toPublicKey: string | null;
-  toAccountHash: string | null;
-  amount: string;
-  id: number | null;
-  timestamp: string;
-  toPurse: string | null;
-};
-
 // ============ Bidder ============
 
-export type BidderAPI = {
+export type Bidder = {
   public_key: string;
   bid: string;
   era_id: number;
@@ -359,19 +259,69 @@ export type BidderAPI = {
   fee: number;
 };
 
-export type Bidder = {
-  publicKey: string;
-  bid: string;
-  eraId: number;
-  selfStake: string;
-  selfStakeChange: string | null;
-  delegatorsCount: number;
-  delegatorsCountChange: number | null;
-  delegatorsStake: string;
-  delegatorsStakeChange: string | null;
-  inactive: boolean;
-  isNew: boolean;
-  fee: number;
+// ============ Contract ============
+
+export type Contract = {
+  contract_hash: string;
+  contract_package_hash: string;
+  contract_wasm_hash: string;
+  named_keys: { name: string; key: string }[];
+  entry_points: {
+    name: string;
+    args: { name: string; type: string; optional: boolean }[];
+    ret: string;
+    access: string;
+    entry_point_type: string;
+  }[];
+  protocol_version: string;
+  timestamp: string;
+};
+
+// ============ Contract Package ============
+
+export type ContractPackage = {
+  contract_package_hash: string;
+  owner_public_key: string;
+  access_key: string;
+  versions: {
+    contract_hash: string;
+    contract_version: number;
+    protocol_version_major: number;
+  }[];
+  disabled_versions: {
+    contract_hash: string;
+    contract_version: number;
+    protocol_version_major: number;
+  }[];
+  groups: {
+    group: string;
+    keys: string[];
+  }[];
+  timestamp: string;
+};
+
+// ============ NFT ============
+
+export type NftToken = {
+  token_id: string;
+  contract_package_hash: string;
+  owner_public_key: string | null;
+  owner_account_hash: string | null;
+  on_chain_metadata: Record<string, unknown>;
+  off_chain_metadata: Record<string, unknown> | null;
+  burn: boolean;
+  timestamp: string;
+};
+
+// ============ Fungible Token / ERC20 ============
+
+export type FungibleToken = {
+  contract_package_hash: string;
+  name: string;
+  symbol: string;
+  decimals: number;
+  total_supply: string;
+  image_url: string | null;
 };
 
 // ============ Query Params ============
@@ -402,6 +352,7 @@ export type BlocksQueryParams = {
   order_direction?: "ASC" | "DESC";
   proposer?: string;
   era_id?: number;
+  hash?: string;
 };
 
 export type DeploysQueryParams = {
@@ -411,4 +362,12 @@ export type DeploysQueryParams = {
   order_direction?: "ASC" | "DESC";
   caller_public_key?: string;
   block_hash?: string;
+  deploy_hash?: string;
+};
+
+export type ContractsQueryParams = {
+  page?: number;
+  page_size?: number;
+  contract_hash?: string;
+  contract_package_hash?: string;
 };

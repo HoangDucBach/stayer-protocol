@@ -1,9 +1,9 @@
-import { CASPER_CLOUD_ENDPOINT } from "@/configs/constants";
+import { CASPER_NODE_ADDRESS } from "@/configs/constants";
 import { HttpHandler, RpcClient } from "casper-js-sdk";
 
-const rpcHandler = new HttpHandler(CASPER_CLOUD_ENDPOINT);
+const rpcHandler = new HttpHandler(CASPER_NODE_ADDRESS);
 rpcHandler.setCustomHeaders({
-  Authorization: "55f79117-fc4d-4d60-9956-65423f39a06a",
+  Authorization: process.env.CASPER_API_KEY!,
 });
 
 export const rpcClient = new RpcClient(rpcHandler);
@@ -89,7 +89,8 @@ export async function waitForTransaction(
 
   while (Date.now() - startTime < timeoutMs) {
     try {
-      const result = await rpcClient.getTransactionByTransactionHash(transactionHash);
+      const result =
+        await rpcClient.getTransactionByTransactionHash(transactionHash);
 
       if (result.executionInfo) {
         const executionResult = result.executionInfo.executionResult;

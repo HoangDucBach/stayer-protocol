@@ -1,8 +1,10 @@
 // Casper Network Configuration
 export const CASPER_NODE_ADDRESS = process.env.NEXT_PUBLIC_CASPER_LIVENET_NODE_ADDRESS!;
 export const CASPER_CLOUD_ENDPOINT = process.env.NEXT_PUBLIC_CASPER_CLOUD_ENDPOINT!;
+export const CASPER_CLOUD_API_URL = process.env.NEXT_PUBLIC_CASPER_CLOUD_API_URL!;
 export const CASPER_CHAIN_NAME = process.env.NEXT_PUBLIC_CASPER_LIVENET_CHAIN_NAME!;
 export const CASPER_EVENTS_URL = process.env.NEXT_PUBLIC_CASPER_LIVENET_EVENTS_URL!;
+export const CASPER_NODE_URL = process.env.NEXT_PUBLIC_NODE_URL!;
 
 // Contract Addresses
 export const PRICE_ORACLE_CONTRACT = process.env.NEXT_PUBLIC_PRICE_ORACLE!;
