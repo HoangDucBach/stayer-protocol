@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "cspr-cloud": {
+      "type": "sse",
+      "url": "https://docs.cspr.cloud/~gitbook/mcp"
+    }
+  }
+}

@@ -1,12 +1,11 @@
 import { ProtectedContent } from "@/app/_components/ProtectedContent";
+import { HStack } from "@chakra-ui/react";
+import { ValidatorList } from "./_components/ValidatorList";
 
 export default function Page() {
   return (
-    <ProtectedContent>
-      <div>
-        <h1>Dashboard</h1>
-        <p>Welcome to your dashboard!</p>
-      </div>
-    </ProtectedContent>
+    <HStack>
+      <ValidatorList />
+    </HStack>
   );
 }
