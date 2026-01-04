@@ -16,20 +16,6 @@ pub trait YSCSPRContract {
     fn total_supply(&self) -> U256;
 }
 
-#[odra::external_contract]
-pub trait AuctionContract {
-    fn delegate(&mut self, delegator: PublicKey, validator: PublicKey, amount: U512) -> U512;
-    fn undelegate(&mut self, delegator: PublicKey, validator: PublicKey, amount: U512) -> U512;
-    fn redelegate(&mut self, delegator: PublicKey, validator: PublicKey, amount: U512, new_validator: PublicKey) -> U512;
-    fn add_bid(&mut self, public_key: PublicKey, delegation_rate: u8, amount: U512, minimum_delegation_amount: u64, maximum_delegation_amount: u64) -> U512;
-    fn activate_bid(&mut self, validator: PublicKey);
-    fn change_bid_public_key(&mut self, public_key: PublicKey, new_public_key: PublicKey);
-    fn add_reservations(&mut self, reservations: Vec<u8>);
-    fn cancel_reservations(&mut self, validator: PublicKey, delegators: Vec<u8>);
-    fn distribute(&mut self, rewards_map: Vec<u8>);
-    fn read_era_id(&self) -> u64;
-    fn get_era_validators(&self) -> Option<Vec<u8>>;
-}
 
 #[odra::odra_type]
 pub struct ValidatorData {
@@ -62,6 +48,20 @@ pub struct LiquidStakingStats {
     pub exchange_rate: U256,
 }
 
+#[odra::odra_type]
+pub struct PendingDelegation {
+    pub validator: PublicKey,
+    pub amount: U512,
+    pub era: u64,
+}
+
+#[odra::odra_type]
+pub struct PendingUndelegation {
+    pub validator: PublicKey,
+    pub amount: U512,
+    pub era: u64,
+}
+
 const MIN_STAKE: u128 = 100_000_000_000;
 const UNBONDING_DELAY: u64 = 7;
 const PROTOCOL_FEE_BPS: u64 = 500;
@@ -71,11 +71,10 @@ const MAX_SINGLE_STAKE: u128 = 100_000_000_000_000;
 const MOTES_PER_CSPR: u128 = 1_000_000_000;
 const BASIS_POINTS: u64 = 10000;
 
-#[odra::module(events = [Staked, UnstakeRequested, Claimed, RewardsHarvested])]
+#[odra::module(events = [Staked, UnstakeRequested, Claimed, RewardsHarvested, DelegationProcessed, UndelegationProcessed])]
 pub struct LiquidStaking {
     validator_registry: External<ValidatorRegistryContractContractRef>,
     yscspr_token: External<YSCSPRContractContractRef>,
-    auction_contract: External<AuctionContractContractRef>,
     owner: Var<Address>,
     keeper: Var<Address>,
 
@@ -89,8 +88,11 @@ pub struct LiquidStaking {
     next_request_id: Var<u64>,
 
     last_harvest_era: Var<u64>,
-    cumulative_rewards: Var<U512>,
-    treasury_rewards: Var<U512>,
+
+    // Pending delegations/undelegations for keeper to process
+    pending_delegations: Var<Vec<PendingDelegation>>,
+    pending_undelegations: Var<Vec<PendingUndelegation>>,
+    total_delegated: Var<U512>,  // Actually delegated to validators
 }
 
 #[odra::module]
@@ -100,22 +102,21 @@ impl LiquidStaking {
         &mut self,
         validator_registry: Address,
         yscspr_token: Address,
-        auction_contract: Address,
         keeper: Address,
     ) {
         let caller = self.env().caller();
         self.owner.set(caller);
         self.validator_registry.set(validator_registry);
         self.yscspr_token.set(yscspr_token);
-        self.auction_contract.set(auction_contract);
         self.keeper.set(keeper);
 
         self.total_staked.set(U512::zero());
         self.total_pending_withdrawal.set(U512::zero());
         self.next_request_id.set(1);
         self.last_harvest_era.set(0);
-        self.cumulative_rewards.set(U512::zero());
-        self.treasury_rewards.set(U512::zero());
+        self.pending_delegations.set(Vec::new());
+        self.pending_undelegations.set(Vec::new());
+        self.total_delegated.set(U512::zero());
     }
 
     #[odra(payable)]
@@ -161,6 +162,26 @@ impl LiquidStaking {
 
         let total = self.total_staked.get_or_default();
         self.total_staked.set(total.checked_add(amount).unwrap_or_default());
+
+        // Add to pending delegations for keeper to process
+        let mut pending = self.pending_delegations.get_or_default();
+        // Check if there's already a pending delegation for this validator
+        let mut found = false;
+        for p in pending.iter_mut() {
+            if p.validator == validator_pubkey {
+                p.amount = p.amount.checked_add(amount).unwrap_or_default();
+                found = true;
+                break;
+            }
+        }
+        if !found {
+            pending.push(PendingDelegation {
+                validator: validator_pubkey.clone(),
+                amount,
+                era: current_era,
+            });
+        }
+        self.pending_delegations.set(pending);
 
         self.mint_yscspr(caller, mint_amount);
 
@@ -233,6 +254,25 @@ impl LiquidStaking {
 
         let total_pending = self.total_pending_withdrawal.get_or_default();
         self.total_pending_withdrawal.set(total_pending.checked_add(cspr_to_return).unwrap_or_default());
+
+        // Add to pending undelegations for keeper to process
+        let mut pending = self.pending_undelegations.get_or_default();
+        let mut found = false;
+        for p in pending.iter_mut() {
+            if p.validator == validator_pubkey {
+                p.amount = p.amount.checked_add(cspr_to_return).unwrap_or_default();
+                found = true;
+                break;
+            }
+        }
+        if !found {
+            pending.push(PendingUndelegation {
+                validator: validator_pubkey.clone(),
+                amount: cspr_to_return,
+                era: current_era,
+            });
+        }
+        self.pending_undelegations.set(pending);
 
         self.env().emit_event(UnstakeRequested {
             user: caller,
@@ -313,11 +353,8 @@ impl LiquidStaking {
                 / BASIS_POINTS as u128
         );
 
-        let treasury = self.treasury_rewards.get_or_default();
-        self.treasury_rewards.set(treasury.checked_add(protocol_fee).unwrap_or_default());
-
-        let cumulative = self.cumulative_rewards.get_or_default();
-        self.cumulative_rewards.set(cumulative.checked_add(rewards_earned).unwrap_or_default());
+        // Add rewards to total staked (increases exchange rate)
+        self.total_staked.set(total_staked.checked_add(rewards_earned.checked_sub(protocol_fee).unwrap_or_default()).unwrap_or_default());
 
         self.last_harvest_era.set(current_era);
 
@@ -350,47 +387,135 @@ impl LiquidStaking {
             .unwrap_or(precision)
     }
 
-    pub fn get_user_stake(&self, user: Address, validator: PublicKey) -> U512 {
-        let key = (user, validator);
-        self.user_stakes.get(&key).unwrap_or(U512::zero())
+    // ============== Keeper Delegation Functions ==============
+
+    /// Get pending delegations for keeper to process
+    pub fn get_pending_delegations(&self) -> Vec<PendingDelegation> {
+        self.pending_delegations.get_or_default()
     }
 
-    pub fn get_pending_withdrawals(&self, user: Address) -> Vec<WithdrawalRequest> {
-        let request_ids = self.user_pending_withdrawals.get(&user).unwrap_or_default();
-        request_ids
-            .iter()
-            .filter_map(|id| self.withdrawal_requests.get(id))
-            .collect()
+    /// Get pending undelegations for keeper to process
+    pub fn get_pending_undelegations(&self) -> Vec<PendingUndelegation> {
+        self.pending_undelegations.get_or_default()
     }
 
-    pub fn get_total_staked(&self) -> U512 {
-        self.total_staked.get_or_default()
-    }
+    /// Keeper withdraws CSPR to delegate to validators
+    /// Returns the amount withdrawn
+    pub fn withdraw_for_delegation(&mut self, validator: PublicKey, amount: U512) -> U512 {
+        self.require_keeper();
 
-    pub fn get_stats(&self) -> LiquidStakingStats {
-        LiquidStakingStats {
-            total_staked: self.total_staked.get_or_default(),
-            total_pending_withdrawal: self.total_pending_withdrawal.get_or_default(),
-            cumulative_rewards: self.cumulative_rewards.get_or_default(),
-            exchange_rate: self.get_exchange_rate(),
+        let pending = self.pending_delegations.get_or_default();
+        let mut found_amount = U512::zero();
+
+        for p in pending.iter() {
+            if p.validator == validator {
+                found_amount = p.amount;
+                break;
+            }
         }
+
+        if found_amount.is_zero() || amount > found_amount {
+            self.env().revert(Error::InvalidAmount);
+        }
+
+        // Transfer CSPR to keeper
+        let caller = self.env().caller();
+        self.env().transfer_tokens(&caller, &amount);
+
+        amount
     }
+
+    /// Keeper confirms successful delegation
+    pub fn confirm_delegation(&mut self, validator: PublicKey, amount: U512) {
+        self.require_keeper();
+
+        let mut pending = self.pending_delegations.get_or_default();
+        let mut new_pending = Vec::new();
+        let mut confirmed = false;
+
+        for mut p in pending {
+            if p.validator == validator && !confirmed {
+                if amount >= p.amount {
+                    // Fully delegated, remove from pending
+                    confirmed = true;
+                    continue;
+                } else {
+                    // Partially delegated
+                    p.amount = p.amount.checked_sub(amount).unwrap_or_default();
+                    confirmed = true;
+                }
+            }
+            new_pending.push(p);
+        }
+
+        if !confirmed {
+            self.env().revert(Error::InvalidValidator);
+        }
+
+        self.pending_delegations.set(new_pending);
+
+        // Update total delegated
+        let total = self.total_delegated.get_or_default();
+        self.total_delegated.set(total.checked_add(amount).unwrap_or_default());
+
+        self.env().emit_event(DelegationProcessed {
+            validator,
+            amount,
+            total_delegated: self.total_delegated.get_or_default(),
+        });
+    }
+
+    /// Keeper confirms successful undelegation
+    pub fn confirm_undelegation(&mut self, validator: PublicKey, amount: U512) {
+        self.require_keeper();
+
+        let mut pending = self.pending_undelegations.get_or_default();
+        let mut new_pending = Vec::new();
+        let mut confirmed = false;
+
+        for mut p in pending {
+            if p.validator == validator && !confirmed {
+                if amount >= p.amount {
+                    confirmed = true;
+                    continue;
+                } else {
+                    p.amount = p.amount.checked_sub(amount).unwrap_or_default();
+                    confirmed = true;
+                }
+            }
+            new_pending.push(p);
+        }
+
+        if !confirmed {
+            self.env().revert(Error::InvalidValidator);
+        }
+
+        self.pending_undelegations.set(new_pending);
+
+        // Update total delegated
+        let total = self.total_delegated.get_or_default();
+        self.total_delegated.set(total.checked_sub(amount).unwrap_or_default());
+
+        self.env().emit_event(UndelegationProcessed {
+            validator,
+            amount,
+            total_delegated: self.total_delegated.get_or_default(),
+        });
+    }
+
+    /// Keeper deposits CSPR back after undelegation completes
+    #[odra(payable)]
+    pub fn deposit_from_undelegation(&mut self) {
+        self.require_keeper();
+        // CSPR is automatically added to contract balance via payable
+        // No additional tracking needed as it's already in total_pending_withdrawal
+    }
+
+    // ============== Admin Functions ==============
 
     pub fn set_keeper(&mut self, new_keeper: Address) {
         self.require_owner();
         self.keeper.set(new_keeper);
-    }
-
-    pub fn withdraw_treasury(&mut self, amount: U512) {
-        self.require_owner();
-
-        let treasury = self.treasury_rewards.get_or_default();
-        if amount > treasury {
-            self.env().revert(Error::InsufficientTreasury);
-        }
-
-        self.treasury_rewards.set(treasury.checked_sub(amount).unwrap_or_default());
-        self.env().transfer_tokens(&self.env().caller(), &amount);
     }
 
     fn calculate_multiplier(&self, p_score: u64, p_avg: u64) -> u64 {
@@ -473,6 +598,20 @@ pub struct RewardsHarvested {
     pub new_exchange_rate: U256,
 }
 
+#[odra::event]
+pub struct DelegationProcessed {
+    pub validator: PublicKey,
+    pub amount: U512,
+    pub total_delegated: U512,
+}
+
+#[odra::event]
+pub struct UndelegationProcessed {
+    pub validator: PublicKey,
+    pub amount: U512,
+    pub total_delegated: U512,
+}
+
 #[odra::odra_error]
 pub enum Error {
     Unauthorized = 1,
@@ -488,8 +627,7 @@ pub enum Error {
     NoMaturedWithdrawals = 11,
     RequestNotFound = 12,
     InvalidEra = 13,
-    InsufficientTreasury = 14,
-    InsufficientStake = 15,
+    InsufficientStake = 14,
 }
 
 #[cfg(test)]
@@ -503,14 +641,12 @@ mod tests {
         let registry_addr = env.get_account(1);
         let yscspr_addr = env.get_account(2);
         let keeper = env.get_account(3);
-        let auction_addr = env.get_account(4);
 
         env.set_caller(owner);
 
         let liquid_staking = LiquidStaking::deploy(&env, LiquidStakingInitArgs {
             validator_registry: registry_addr,
             yscspr_token: yscspr_addr,
-            auction_contract: auction_addr,
             keeper,
         });
 

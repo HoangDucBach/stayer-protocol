@@ -17,6 +17,10 @@ import {
 import { STAYER_VAULT_CONTRACT, CASPER_CHAIN_NAME } from "@/configs/constants";
 import { waitForDeployOrTransaction } from "@/libs/casper";
 import { apiClient } from "@/libs/api";
+import {
+  buildOdraProxyTransaction,
+  buildDepositInnerArgs,
+} from "@/libs/odra-proxy";
 import type {
   Position,
   VaultParams,
@@ -45,6 +49,8 @@ interface VaultResponse {
 
 // ============== Mutations (keep SDK) ==============
 
+const DEFAULT_PAYMENT_GAS = 5_000_000_000;
+
 export function useDeposit({
   options,
 }: HooksOptions<string, Error, DepositPayload> = {}) {
@@ -59,21 +65,21 @@ export function useDeposit({
 
       const senderPublicKey = PublicKey.fromHex(activeAccount.public_key);
 
-      const args = Args.fromMap({});
+      const innerArgs = buildDepositInnerArgs();
 
-      const transaction = new ContractCallBuilder()
-        .from(senderPublicKey)
-        .byHash(STAYER_VAULT_CONTRACT)
-        .entryPoint("deposit")
-        .runtimeArgs(args)
-        .chainName(CASPER_CHAIN_NAME)
-        .payment(Number(amount))
-        .build();
+      const transactionJson = await buildOdraProxyTransaction({
+        senderPublicKey,
+        packageHash: STAYER_VAULT_CONTRACT,
+        entryPoint: "deposit",
+        innerArgs,
+        attachedValue: amount,
+        paymentAmount: DEFAULT_PAYMENT_GAS,
+      });
 
-      const wrapper = transaction.getTransactionWrapper();
-      const transactionJson = TransactionWrapper.toJSON(wrapper) as object;
-
-      const result = await clickRef.send(transactionJson, activeAccount.public_key);
+      const result = await clickRef.send(
+        transactionJson,
+        activeAccount.public_key
+      );
       if (!result) throw new Error("Transaction failed");
 
       const hash = result.deployHash || result.transactionHash || "";
@@ -82,7 +88,8 @@ export function useDeposit({
         const txResult = await waitForDeployOrTransaction(hash);
         if (!txResult.executionResult.success) {
           throw new Error(
-            txResult.executionResult.errorMessage || "Transaction execution failed"
+            txResult.executionResult.errorMessage ||
+              "Transaction execution failed"
           );
         }
       }
@@ -123,7 +130,10 @@ export function useBorrow({
       const wrapper = transaction.getTransactionWrapper();
       const transactionJson = TransactionWrapper.toJSON(wrapper) as object;
 
-      const result = await clickRef.send(transactionJson, activeAccount.public_key);
+      const result = await clickRef.send(
+        transactionJson,
+        activeAccount.public_key
+      );
       if (!result) throw new Error("Transaction failed");
 
       const hash = result.deployHash || result.transactionHash || "";
@@ -132,7 +142,8 @@ export function useBorrow({
         const txResult = await waitForDeployOrTransaction(hash);
         if (!txResult.executionResult.success) {
           throw new Error(
-            txResult.executionResult.errorMessage || "Transaction execution failed"
+            txResult.executionResult.errorMessage ||
+              "Transaction execution failed"
           );
         }
       }
@@ -173,7 +184,10 @@ export function useRepay({
       const wrapper = transaction.getTransactionWrapper();
       const transactionJson = TransactionWrapper.toJSON(wrapper) as object;
 
-      const result = await clickRef.send(transactionJson, activeAccount.public_key);
+      const result = await clickRef.send(
+        transactionJson,
+        activeAccount.public_key
+      );
       if (!result) throw new Error("Transaction failed");
 
       const hash = result.deployHash || result.transactionHash || "";
@@ -182,7 +196,8 @@ export function useRepay({
         const txResult = await waitForDeployOrTransaction(hash);
         if (!txResult.executionResult.success) {
           throw new Error(
-            txResult.executionResult.errorMessage || "Transaction execution failed"
+            txResult.executionResult.errorMessage ||
+              "Transaction execution failed"
           );
         }
       }
@@ -226,7 +241,10 @@ export function useWithdraw({
       const wrapper = transaction.getTransactionWrapper();
       const transactionJson = TransactionWrapper.toJSON(wrapper) as object;
 
-      const result = await clickRef.send(transactionJson, activeAccount.public_key);
+      const result = await clickRef.send(
+        transactionJson,
+        activeAccount.public_key
+      );
       if (!result) throw new Error("Transaction failed");
 
       const hash = result.deployHash || result.transactionHash || "";
@@ -235,7 +253,8 @@ export function useWithdraw({
         const txResult = await waitForDeployOrTransaction(hash);
         if (!txResult.executionResult.success) {
           throw new Error(
-            txResult.executionResult.errorMessage || "Transaction execution failed"
+            txResult.executionResult.errorMessage ||
+              "Transaction execution failed"
           );
         }
       }
@@ -281,7 +300,10 @@ export function useLiquidate({
       const wrapper = transaction.getTransactionWrapper();
       const transactionJson = TransactionWrapper.toJSON(wrapper) as object;
 
-      const result = await clickRef.send(transactionJson, activeAccount.public_key);
+      const result = await clickRef.send(
+        transactionJson,
+        activeAccount.public_key
+      );
       if (!result) throw new Error("Transaction failed");
 
       const hash = result.deployHash || result.transactionHash || "";
@@ -290,7 +312,8 @@ export function useLiquidate({
         const txResult = await waitForDeployOrTransaction(hash);
         if (!txResult.executionResult.success) {
           throw new Error(
-            txResult.executionResult.errorMessage || "Transaction execution failed"
+            txResult.executionResult.errorMessage ||
+              "Transaction execution failed"
           );
         }
       }
@@ -320,7 +343,9 @@ export function useGetPosition(
   });
 }
 
-export function useGetVaultParams({ options }: QueryHooksOptions<VaultParams | null> = {}) {
+export function useGetVaultParams({
+  options,
+}: QueryHooksOptions<VaultParams | null> = {}) {
   return useQuery({
     queryKey: ["stayer-vault", "params"],
     queryFn: async () => {
@@ -331,7 +356,9 @@ export function useGetVaultParams({ options }: QueryHooksOptions<VaultParams | n
   });
 }
 
-export function useGetVaultState({ options }: QueryHooksOptions<VaultResponse> = {}) {
+export function useGetVaultState({
+  options,
+}: QueryHooksOptions<VaultResponse> = {}) {
   return useQuery({
     queryKey: ["stayer-vault", "state"],
     queryFn: async () => {
@@ -342,7 +369,9 @@ export function useGetVaultState({ options }: QueryHooksOptions<VaultResponse> =
   });
 }
 
-export function useGetTotalCollateral({ options }: QueryHooksOptions<string> = {}) {
+export function useGetTotalCollateral({
+  options,
+}: QueryHooksOptions<string> = {}) {
   return useQuery({
     queryKey: ["stayer-vault", "total-collateral"],
     queryFn: async () => {

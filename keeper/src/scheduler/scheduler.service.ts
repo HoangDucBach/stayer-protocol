@@ -3,6 +3,7 @@ import { SchedulerRegistry } from '@nestjs/schedule';
 import { ConfigService } from '@nestjs/config';
 import { ValidatorRegistryService } from '../validator-registry/validator-registry.service';
 import { LiquidStakingService } from '../liquid-staking/liquid-staking.service';
+import { DelegationService } from '../delegation/delegation.service';
 
 @Injectable()
 export class SchedulerService implements OnModuleInit {
@@ -11,6 +12,7 @@ export class SchedulerService implements OnModuleInit {
   constructor(
     private validatorRegistryService: ValidatorRegistryService,
     private liquidStakingService: LiquidStakingService,
+    private delegationService: DelegationService,
     private configService: ConfigService,
     private schedulerRegistry: SchedulerRegistry,
   ) {}
@@ -51,6 +53,17 @@ export class SchedulerService implements OnModuleInit {
     this.logger.log(
       `Withdrawal processing scheduled every ${withdrawalInterval}ms (${withdrawalInterval / 1000 / 60} minutes)`,
     );
+
+    // Setup delegation processing interval
+    const delegationInterval =
+      this.configService.get<number>('delegationIntervalMs') || 3600000;
+    const delegationTimer = setInterval(() => {
+      void this.handleDelegationProcessing();
+    }, delegationInterval);
+    this.schedulerRegistry.addInterval('processDelegations', delegationTimer);
+    this.logger.log(
+      `Delegation processing scheduled every ${delegationInterval}ms (${delegationInterval / 1000 / 60} minutes)`,
+    );
   }
 
   async handleValidatorUpdate() {
@@ -82,6 +95,18 @@ export class SchedulerService implements OnModuleInit {
     } catch (error) {
       this.logger.error(
         `Scheduled withdrawal processing failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  async handleDelegationProcessing() {
+    this.logger.log('Executing scheduled delegation processing...');
+    try {
+      await this.delegationService.processDelegations();
+      await this.delegationService.processUndelegations();
+    } catch (error) {
+      this.logger.error(
+        `Scheduled delegation processing failed: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }

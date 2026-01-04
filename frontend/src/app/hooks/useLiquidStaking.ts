@@ -14,9 +14,16 @@ import {
   ContractCallBuilder,
   TransactionWrapper,
 } from "casper-js-sdk";
-import { LIQUID_STAKING_CONTRACT, CASPER_CHAIN_NAME } from "@/configs/constants";
+import {
+  LIQUID_STAKING_CONTRACT,
+  CASPER_CHAIN_NAME,
+} from "@/configs/constants";
 import { waitForDeployOrTransaction } from "@/libs/casper";
 import { apiClient } from "@/libs/api";
+import {
+  buildOdraProxyTransaction,
+  buildStakeInnerArgs,
+} from "@/libs/odra-proxy";
 import type {
   StakePayload,
   UnstakePayload,
@@ -24,6 +31,7 @@ import type {
   LiquidStakingStats,
   WithdrawalRequest,
 } from "@/types/core";
+import BigNumber from "bignumber.js";
 
 type HooksOptions<TData = unknown, TError = Error, TVariables = void> = {
   options?: Omit<UseMutationOptions<TData, TError, TVariables>, "mutationFn">;
@@ -43,7 +51,7 @@ interface LiquidStakingResponse {
   withdrawal_request: WithdrawalRequest | null;
 }
 
-const DEFAULT_PAYMENT_GAS = 5_000_000_000;
+const DEFAULT_PAYMENT_GAS = 10_000_000_000;
 
 // ============== Mutations (keep SDK) ==============
 
@@ -52,58 +60,58 @@ export function useStake({
 }: HooksOptions<string, Error, StakePayload> = {}) {
   const clickRef = useClickRef();
 
-  return useMutation({
-    mutationFn: async ({
-      validatorPublicKey,
-      amount,
-      currentEra,
-      waitForConfirmation,
-    }: StakePayload) => {
-      if (!clickRef) throw new Error("Click ref not initialized");
+  const handleStake = async ({
+    validatorPublicKey,
+    amount, // in CSPR
+    currentEra,
+    waitForConfirmation,
+  }: StakePayload) => {
+    if (!clickRef) throw new Error("Click ref not initialized");
 
-      const activeAccount = clickRef.currentAccount;
-      if (!activeAccount) throw new Error("No active account");
+    const activeAccount = clickRef.currentAccount;
+    if (!activeAccount) throw new Error("No active account");
 
-      const senderPublicKey = PublicKey.fromHex(activeAccount.public_key);
+    const senderPublicKey = PublicKey.fromHex(activeAccount.public_key);
 
-      // Note: stake is a payable function, amount is sent via payment, not as an argument
-      const args = Args.fromMap({
-        validator_pubkey: CLValue.newCLPublicKey(
-          PublicKey.fromHex(validatorPublicKey)
-        ),
-        current_era: CLValue.newCLUint64(currentEra),
-      });
+    // Build inner args for stake function
+    const innerArgs = buildStakeInnerArgs(validatorPublicKey, currentEra);
 
-      const transaction = new ContractCallBuilder()
-        .from(senderPublicKey)
-        .byHash(LIQUID_STAKING_CONTRACT)
-        .entryPoint("stake")
-        .runtimeArgs(args)
-        .chainName(CASPER_CHAIN_NAME)
-        .payment(Number(amount))
-        .build();
+    const amountToMotes = BigNumber(amount).multipliedBy(1e9);
 
-      // Wrap transaction in the format cspr.click expects
-      const wrapper = transaction.getTransactionWrapper();
-      const transactionJson = TransactionWrapper.toJSON(wrapper) as object;
+    // Build transaction using Odra proxy (required for payable functions)
+    const transactionJson = await buildOdraProxyTransaction({
+      senderPublicKey,
+      packageHash: LIQUID_STAKING_CONTRACT,
+      entryPoint: "stake",
+      innerArgs,
+      attachedValue: amountToMotes.toString(),
+      paymentAmount: DEFAULT_PAYMENT_GAS,
+    });
 
-      const result = await clickRef.send(transactionJson, activeAccount.public_key);
-      console.log("Transaction result:", result);
-      if (!result) throw new Error("Transaction failed");
+    const result = await clickRef.send(
+      transactionJson,
+      activeAccount.public_key
+    );
+    console.log("Transaction result:", result);
+    if (!result) throw new Error("Transaction failed");
 
-      const hash = result.deployHash || result.transactionHash || "";
+    const hash = result.deployHash || result.transactionHash || "";
 
-      if (waitForConfirmation && hash) {
-        const txResult = await waitForDeployOrTransaction(hash);
-        if (!txResult.executionResult.success) {
-          throw new Error(
-            txResult.executionResult.errorMessage || "Transaction execution failed"
-          );
-        }
+    if (waitForConfirmation && hash) {
+      const txResult = await waitForDeployOrTransaction(hash);
+      if (!txResult.executionResult.success) {
+        throw new Error(
+          txResult.executionResult.errorMessage ||
+            "Transaction execution failed"
+        );
       }
+    }
 
-      return hash;
-    },
+    return hash;
+  };
+
+  return useMutation({
+    mutationFn: handleStake,
     ...options,
   });
 }
@@ -147,7 +155,10 @@ export function useUnstake({
       const wrapper = transaction.getTransactionWrapper();
       const transactionJson = TransactionWrapper.toJSON(wrapper) as object;
 
-      const result = await clickRef.send(transactionJson, activeAccount.public_key);
+      const result = await clickRef.send(
+        transactionJson,
+        activeAccount.public_key
+      );
       if (!result) throw new Error("Transaction failed");
 
       const hash = result.deployHash || result.transactionHash || "";
@@ -156,7 +167,8 @@ export function useUnstake({
         const txResult = await waitForDeployOrTransaction(hash);
         if (!txResult.executionResult.success) {
           throw new Error(
-            txResult.executionResult.errorMessage || "Transaction execution failed"
+            txResult.executionResult.errorMessage ||
+              "Transaction execution failed"
           );
         }
       }
@@ -197,7 +209,10 @@ export function useClaim({
       const wrapper = transaction.getTransactionWrapper();
       const transactionJson = TransactionWrapper.toJSON(wrapper) as object;
 
-      const result = await clickRef.send(transactionJson, activeAccount.public_key);
+      const result = await clickRef.send(
+        transactionJson,
+        activeAccount.public_key
+      );
       if (!result) throw new Error("Transaction failed");
 
       const hash = result.deployHash || result.transactionHash || "";
@@ -206,7 +221,8 @@ export function useClaim({
         const txResult = await waitForDeployOrTransaction(hash);
         if (!txResult.executionResult.success) {
           throw new Error(
-            txResult.executionResult.errorMessage || "Transaction execution failed"
+            txResult.executionResult.errorMessage ||
+              "Transaction execution failed"
           );
         }
       }
@@ -272,7 +288,9 @@ export function useGetWithdrawalRequest(
   });
 }
 
-export function useGetExchangeRate({ options }: QueryHooksOptions<string> = {}) {
+export function useGetExchangeRate({
+  options,
+}: QueryHooksOptions<string> = {}) {
   return useQuery({
     queryKey: ["liquid-staking", "exchange-rate"],
     queryFn: async () => {
