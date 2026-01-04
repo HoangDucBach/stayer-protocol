@@ -1,6 +1,11 @@
 "use client";
 
-import { MenuContent, MenuRoot, MenuTrigger } from "@/components/ui/menu";
+import {
+  MenuContent,
+  MenuItem,
+  MenuRoot,
+  MenuTrigger,
+} from "@/components/ui/menu";
 import {
   Box,
   Button,
@@ -13,6 +18,7 @@ import {
   MenuRootProps,
 } from "@chakra-ui/react";
 import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
 import { HiMenu } from "react-icons/hi";
 
 const WalletConnect = dynamic(
@@ -64,6 +70,7 @@ export function Header(props: HeaderProps) {
 interface OpenMenuProps extends Omit<MenuRootProps, "children"> {}
 
 const OpenMenu = (props: OpenMenuProps) => {
+  const router = useRouter();
   return (
     <MenuRoot {...props}>
       <MenuTrigger asChild>
@@ -77,8 +84,22 @@ const OpenMenu = (props: OpenMenuProps) => {
         </Button>
       </MenuTrigger>
       <MenuContent>
-        {/* Menu items can be added here in the future */}
+        {links.map((link) => (
+          <MenuItem
+            key={link.href}
+            value={link.label}
+            onSelect={router.push.bind(null, link.href)}
+          >
+            {link.label}
+          </MenuItem>
+        ))}
       </MenuContent>
     </MenuRoot>
   );
-}
+};
+
+const links = [
+  { label: "Dashboard", href: "/dashboard" },
+  { label: "Staking", href: "/staking" },
+  { label: "Lending", href: "/lending" },
+];

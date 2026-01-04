@@ -11,10 +11,64 @@ import {
   Text,
   VStack,
 } from "@chakra-ui/react";
+import { useClickRef } from "@make-software/csprclick-ui";
+import { useGetPosition, useGetVaultParams } from "@/app/hooks/useStayerVault";
+import { useGetPrice } from "@/app/hooks/usePriceOracle";
+import { useMemo } from "react";
+import BigNumber from "bignumber.js";
+
+const MOTE_RATE = new BigNumber(1_000_000_000);
 
 type Props = StackProps;
 
 export function PositionCard(props: Props) {
+  const clickRef = useClickRef();
+
+  // Fetch user position
+  const { data: position } = useGetPosition(
+    clickRef?.currentAccount?.public_key || "",
+    { options: { enabled: !!clickRef?.currentAccount } }
+  );
+
+  // Fetch vault parameters
+  const { data: vaultParams } = useGetVaultParams();
+
+  // Fetch CSPR price
+  const { data: cspr_price } = useGetPrice();
+
+  // Calculate collateral value in USD
+  const collateralValue = useMemo(() => {
+    if (!position?.collateral || !cspr_price) return "0";
+    
+    const collateralBN = new BigNumber(position.collateral).dividedBy(MOTE_RATE);
+    const priceBN = new BigNumber(cspr_price).dividedBy(MOTE_RATE);
+    
+    return collateralBN.multipliedBy(priceBN).toFixed(2);
+  }, [position, cspr_price]);
+
+  // Debt value
+  const debtValue = useMemo(() => {
+    if (!position?.debt) return "0";
+    return new BigNumber(position.debt).dividedBy(MOTE_RATE).toFixed(2);
+  }, [position]);
+
+  // Calculate health factor
+  const healthFactor = useMemo(() => {
+    if (!position?.collateral || !position?.debt || !vaultParams?.liq_threshold || !cspr_price) return 1;
+    
+    const collateralBN = new BigNumber(position.collateral).dividedBy(MOTE_RATE);
+    const debtBN = new BigNumber(position.debt).dividedBy(MOTE_RATE);
+    const priceBN = new BigNumber(cspr_price).dividedBy(MOTE_RATE);
+    const liqThresholdBN = new BigNumber(vaultParams.liq_threshold).dividedBy(100);
+    
+    if (debtBN.isZero()) return 1;
+    
+    // Health Factor = (collateral * price * liq_threshold) / debt
+    const hf = collateralBN.multipliedBy(priceBN).multipliedBy(liqThresholdBN).dividedBy(debtBN);
+    
+    return hf.toNumber();
+  }, [position, vaultParams, cspr_price]);
+
   const handleAddCollateral = () => {
     // Implement the logic to add collateral here
   };
@@ -36,18 +90,18 @@ export function PositionCard(props: Props) {
       <HStack w="full" justify="space-between">
         <StatItem
           label="Total Deposits"
-          value="10,000 USDC"
-          estimateMoneyValue="$10,000"
+          value={`${new BigNumber(position?.collateral || 0).dividedBy(MOTE_RATE).toFixed(2)} ySCSPR`}
+          estimateMoneyValue={`$${collateralValue}`}
           imageUrl="/assets/yscspr-token-icon.svg"
         />
         <StatItem
           label="Total Borrows"
-          value="2,500 USDC"
-          estimateMoneyValue="$2,500"
+          value={`${debtValue} cUSD`}
+          estimateMoneyValue={`$${debtValue}`}
           imageUrl="/assets/cusd-token-icon.svg"
         />
       </HStack>
-      <StatusBar currentPercentage={0.7} />
+      <StatusBar currentPercentage={healthFactor} />
       <Button size="md" onClick={handleAddCollateral}>
         Add Collateral
       </Button>

@@ -10,32 +10,144 @@ import {
   Image,
   VStack,
 } from "@chakra-ui/react";
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { useForm } from "react-hook-form";
 import { InfoLine } from "./InfoLine";
 import { FormCard } from "./FormCard";
-import { formatCompact, formatCurrency } from "@/utils";
+import { formatCompact, formatAddress } from "@/utils";
+import { useClickRef } from "@make-software/csprclick-ui";
+import { useBalanceOf } from "@/app/hooks/useYSCSPR";
+import { useUnstake, useGetExchangeRate } from "@/app/hooks/useLiquidStaking";
+import { useGetCurrentEra } from "@/app/hooks/useCasper";
+import BigNumber from "bignumber.js";
+import { motion } from "framer-motion";
+import { toaster } from "@/components/ui/toaster";
+import { Field } from "@/components/ui/field";
 
 type Props = {
   validator: string;
   onBack?: () => void;
 };
 
+type UnstakeFormData = {
+  amount: string;
+};
+
+const MOTE_RATE = new BigNumber(1_000_000_000);
+
 export function UnstakeForm({ validator, onBack }: Props) {
-  const [amount, setAmount] = useState("");
-  const balance = "2,340";
-  const receiveAmount = "1,150";
-  const unbondingTime = "≈ 14 hours";
+  const clickRef = useClickRef();
+  
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    setValue,
+    watch,
+  } = useForm<UnstakeFormData>({
+    defaultValues: {
+      amount: "",
+    },
+  });
+
+  const amount = watch("amount");
+
+  // Fetch ySCSPR balance
+  const { data: yscspr_balance } = useBalanceOf(
+    clickRef?.currentAccount?.public_key || "",
+    { options: { enabled: !!clickRef?.currentAccount } }
+  );
+
+  // Fetch current era
+  const { data: currentEra } = useGetCurrentEra();
+
+  // Fetch exchange rate
+  const { data: exchangeRate } = useGetExchangeRate();
+
+  // Unstake mutation
+  const unstakeMutation = useUnstake({
+    options: {
+      onSuccess: (hash) => {
+        toaster.create({
+          title: "Unstake Successful",
+          description: `Transaction hash: ${hash}`,
+          type: "success",
+        });
+      },
+      onError: (error) => {
+        toaster.create({
+          title: "Unstake Failed",
+          description: error.message,
+          type: "error",
+        });
+      },
+    },
+  });
+
+  const balance = useMemo(() => {
+    if (!yscspr_balance) return "0";
+    return new BigNumber(yscspr_balance)
+      .dividedBy(MOTE_RATE)
+      .toFixed(2);
+  }, [yscspr_balance]);
+  const unbondingTime = "14 hours";
+
+  // Calculate receive CSPR amount using exchange rate
+  const receiveAmount = useMemo(() => {
+    if (!amount || isNaN(Number(amount)) || !exchangeRate) return "0";
+    
+    const amountBN = new BigNumber(amount);
+    const exchangeRateBN = new BigNumber(exchangeRate).dividedBy(MOTE_RATE);
+    
+    // CSPR = ySCSPR * exchange_rate
+    const cspr = amountBN.multipliedBy(exchangeRateBN);
+    
+    return cspr.toFixed(2);
+  }, [amount, exchangeRate]);
+
+  // Validation
+  const isValidAmount = useMemo(() => {
+    if (!amount || amount === "0") return false;
+    const amountBN = new BigNumber(amount);
+    const balanceBN = new BigNumber(balance);
+    return amountBN.isGreaterThan(0) && amountBN.isLessThanOrEqualTo(balanceBN);
+  }, [amount, balance]);
 
   const handleMaxClick = () => {
-    setAmount(balance);
+    setValue("amount", balance);
   };
 
-  const handleUnstake = () => {
-    console.log("Unstaking:", amount);
+  const onSubmit = async (data: UnstakeFormData) => {
+    if (!isValidAmount || !currentEra) {
+      toaster.create({
+        title: "Invalid Amount",
+        description: "Please enter a valid amount",
+        type: "error",
+      });
+      return;
+    }
+
+    const amountInMotes = new BigNumber(data.amount)
+      .multipliedBy(MOTE_RATE)
+      .toFixed(0);
+
+    unstakeMutation.mutate({
+      validatorPublicKey: validator,
+      yscspr_amount: amountInMotes,
+      currentEra,
+      waitForConfirmation: false,
+    });
   };
 
   return (
-    <FormCard>
+    <motion.div
+      initial={{ opacity: 0, x: 20 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: -20 }}
+      transition={{ duration: 0.3, ease: "easeOut" }}
+    >
+      <form onSubmit={handleSubmit(onSubmit)}>
+      <FormCard>
       {/* Amount Input Box */}
       <HStack bg="bg.emphasized" borderRadius="3xl" p={3} position="relative">
         <VStack align="stretch" flex={1} gap={1}>
@@ -45,8 +157,7 @@ export function UnstakeForm({ validator, onBack }: Props) {
 
           <HStack gap={3} align="center">
             <Input
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
+              {...register("amount")}
               placeholder="Amount to unstake"
               fontSize="2xl"
               fontWeight="semibold"
@@ -57,6 +168,22 @@ export function UnstakeForm({ validator, onBack }: Props) {
               _focus={{ outline: "none", boxShadow: "none" }}
               flex={1}
               px={0}
+              onKeyDown={(e) => {
+                // Allow: backspace, delete, tab, escape, enter, decimal point
+                if (
+                  ["Backspace", "Delete", "Tab", "Escape", "Enter", "."].includes(e.key) ||
+                  // Allow: Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X
+                  (e.ctrlKey && ["a", "c", "v", "x"].includes(e.key.toLowerCase())) ||
+                  // Allow: home, end, left, right
+                  ["Home", "End", "ArrowLeft", "ArrowRight"].includes(e.key)
+                ) {
+                  return;
+                }
+                // Prevent if not a number
+                if (!/^[0-9]$/.test(e.key)) {
+                  e.preventDefault();
+                }
+              }}
             />
             <Text fontSize="2xl" fontWeight="semibold" color="fg.inverted">
               ySCSPR
@@ -87,7 +214,7 @@ export function UnstakeForm({ validator, onBack }: Props) {
               {receiveAmount}
             </Text>
             <Image
-              src="/assets/cspr-token-icon.svg"
+              src="/assets/yscspr-token-icon.svg"
               alt="CSPR Token Icon"
               w={4}
               h={4}
@@ -102,13 +229,13 @@ export function UnstakeForm({ validator, onBack }: Props) {
         rightNode={
           <HStack gap={2}>
             <Image
-              src="/assets/yscpr-token-icon.svg"
+              src="/assets/yscspr-token-icon.svg"
               alt="Validator Icon"
               w={4}
               h={4}
             />
             <Text fontSize="sm" color="fg" textDecoration="underline">
-              {validator}
+              {formatAddress(validator)}
             </Text>
           </HStack>
         }
@@ -119,6 +246,7 @@ export function UnstakeForm({ validator, onBack }: Props) {
 
       {/* Unstake Button */}
       <Button
+        type="submit"
         size="xl"
         bg="primary.solid"
         color="primary.contrast"
@@ -127,12 +255,15 @@ export function UnstakeForm({ validator, onBack }: Props) {
         borderRadius="2xl"
         mt={2}
         _hover={{ opacity: 0.9 }}
-        onClick={handleUnstake}
+        disabled={!isValidAmount || unstakeMutation.isPending}
+        loading={unstakeMutation.isPending}
         py={7}
         w="full"
       >
-        Unstake
+        {unstakeMutation.isPending ? "Unstaking..." : "Unstake"}
       </Button>
     </FormCard>
+    </form>
+    </motion.div>
   );
 }

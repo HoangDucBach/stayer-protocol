@@ -7,11 +7,13 @@
     "build": "next build --no-lint",
     "start": "next start",
     "lint": "eslint",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "test:hooks": "tsx src/app/hooks/__tests__/manual-test.ts"
   },
   "dependencies": {
     "@chakra-ui/react": "^3.30.0",
     "@emotion/react": "^11.14.0",
+    "@hookform/resolvers": "^5.2.2",
     "@make-software/csprclick-core-types": "^1.12.2",
     "@make-software/csprclick-ui": "^1.12.1",
     "@tanstack/react-query": "^5.90.13",
@@ -19,14 +21,17 @@
     "bignumber.js": "^9.3.1",
     "blakejs": "^1.2.1",
     "casper-js-sdk": "^5.0.7",
+    "framer-motion": "^12.23.26",
     "lodash": "^4.17.21",
     "next": "^14.2.21",
     "next-themes": "^0.4.6",
     "numbro": "^2.5.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-hook-form": "^7.69.0",
     "react-icons": "^5.5.0",
-    "styled-components": "^5.3.9"
+    "styled-components": "^5.3.9",
+    "zod": "^4.3.4"
   },
   "devDependencies": {
     "@chakra-ui/cli": "^3.30.0",
@@ -36,6 +41,7 @@
     "@types/styled-components": "^5.1.26",
     "eslint": "^8",
     "eslint-config-next": "^14.2.21",
+    "tsx": "^4.21.0",
     "typescript": "^5"
   }
 }
