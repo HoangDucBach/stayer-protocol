@@ -39,7 +39,7 @@ export type UnstakePayload = {
 };
 
 export type ClaimPayload = {
-  requestId: number;
+  currentEra: number;
   waitForConfirmation?: boolean;
 };
 
@@ -81,6 +81,7 @@ export type WithdrawPayload = {
 
 export type LiquidatePayload = {
   userAddress: string;
+  debtToCover: string;
   waitForConfirmation?: boolean;
 };
 

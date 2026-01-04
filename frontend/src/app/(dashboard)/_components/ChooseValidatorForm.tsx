@@ -39,7 +39,7 @@ export function ChooseValidatorForm({ onNext }: Props) {
   );
 
   const { data: validatorData } = useGetValidator(selectedValidator[0] || "", {
-    options: { enabled: !!selectedValidator[0] },
+    enabled: !!selectedValidator[0],
   });
 
   const selectedValidatorInfo = validatorAddresses.find(

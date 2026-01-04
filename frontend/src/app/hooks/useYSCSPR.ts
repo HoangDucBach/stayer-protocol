@@ -1,26 +1,23 @@
+"use client";
+
 import { useClickRef } from "@make-software/csprclick-ui";
-import { useMutation, useQuery, UseMutationOptions, UseQueryOptions } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQuery,
+  UseMutationOptions,
+  UseQueryOptions,
+} from "@tanstack/react-query";
 import {
   Args,
   CLValue,
   PublicKey,
   ContractCallBuilder,
-  HttpHandler,
-  RpcClient,
+  TransactionWrapper,
 } from "casper-js-sdk";
 import { YSCSPR_CONTRACT, CASPER_CHAIN_NAME } from "@/configs/constants";
 import { waitForDeployOrTransaction } from "@/libs/casper";
+import { apiClient } from "@/libs/api";
 import type { TransferPayload, ApprovePayload } from "@/types/core";
-
-// Helper to create RPC client from cspr.click proxy
-function createRpcClient(clickRef: ReturnType<typeof useClickRef>) {
-  const proxy = clickRef?.getCsprCloudProxy();
-  if (!proxy) throw new Error("CSPR.cloud proxy not available");
-
-  const handler = new HttpHandler(proxy.RpcURL);
-  handler.setCustomHeaders({ Authorization: proxy.RpcDigestToken });
-  return new RpcClient(handler);
-}
 
 type HooksOptions<TData = unknown, TError = Error, TVariables = void> = {
   options?: Omit<UseMutationOptions<TData, TError, TVariables>, "mutationFn">;
@@ -30,11 +27,28 @@ type QueryHooksOptions<TData = unknown, TError = Error> = {
   options?: Omit<UseQueryOptions<TData, TError>, "queryKey" | "queryFn">;
 };
 
-export function useTransfer({ options }: HooksOptions<string, Error, TransferPayload> = {}) {
+interface TokenResponse {
+  name: string;
+  symbol: string;
+  decimals: number;
+  total_supply: string;
+  balance: string | null;
+  is_authorized: boolean | null;
+}
+
+// ============== Mutations (keep SDK) ==============
+
+export function useTransfer({
+  options,
+}: HooksOptions<string, Error, TransferPayload> = {}) {
   const clickRef = useClickRef();
 
   return useMutation({
-    mutationFn: async ({ recipient, amount, waitForConfirmation }: TransferPayload) => {
+    mutationFn: async ({
+      recipient,
+      amount,
+      waitForConfirmation,
+    }: TransferPayload) => {
       if (!clickRef) throw new Error("Click ref not initialized");
 
       const activeAccount = clickRef.currentAccount;
@@ -53,10 +67,13 @@ export function useTransfer({ options }: HooksOptions<string, Error, TransferPay
         .entryPoint("transfer")
         .runtimeArgs(args)
         .chainName(CASPER_CHAIN_NAME)
-        .payment(3_000_000_000) // 3 CSPR for gas
+        .payment(3_000_000_000)
         .build();
 
-      const result = await clickRef.send(transaction, activeAccount.public_key);
+      const wrapper = transaction.getTransactionWrapper();
+      const transactionJson = TransactionWrapper.toJSON(wrapper) as object;
+
+      const result = await clickRef.send(transactionJson, activeAccount.public_key);
       if (!result) throw new Error("Transaction failed");
 
       const hash = result.deployHash || result.transactionHash || "";
@@ -64,7 +81,9 @@ export function useTransfer({ options }: HooksOptions<string, Error, TransferPay
       if (waitForConfirmation && hash) {
         const txResult = await waitForDeployOrTransaction(hash);
         if (!txResult.executionResult.success) {
-          throw new Error(txResult.executionResult.errorMessage || "Transaction execution failed");
+          throw new Error(
+            txResult.executionResult.errorMessage || "Transaction execution failed"
+          );
         }
       }
 
@@ -74,11 +93,17 @@ export function useTransfer({ options }: HooksOptions<string, Error, TransferPay
   });
 }
 
-export function useApprove({ options }: HooksOptions<string, Error, ApprovePayload> = {}) {
+export function useApprove({
+  options,
+}: HooksOptions<string, Error, ApprovePayload> = {}) {
   const clickRef = useClickRef();
 
   return useMutation({
-    mutationFn: async ({ spender, amount, waitForConfirmation }: ApprovePayload) => {
+    mutationFn: async ({
+      spender,
+      amount,
+      waitForConfirmation,
+    }: ApprovePayload) => {
       if (!clickRef) throw new Error("Click ref not initialized");
 
       const activeAccount = clickRef.currentAccount;
@@ -97,10 +122,13 @@ export function useApprove({ options }: HooksOptions<string, Error, ApprovePaylo
         .entryPoint("approve")
         .runtimeArgs(args)
         .chainName(CASPER_CHAIN_NAME)
-        .payment(3_000_000_000) // 3 CSPR for gas
+        .payment(3_000_000_000)
         .build();
 
-      const result = await clickRef.send(transaction, activeAccount.public_key);
+      const wrapper = transaction.getTransactionWrapper();
+      const transactionJson = TransactionWrapper.toJSON(wrapper) as object;
+
+      const result = await clickRef.send(transactionJson, activeAccount.public_key);
       if (!result) throw new Error("Transaction failed");
 
       const hash = result.deployHash || result.transactionHash || "";
@@ -108,7 +136,9 @@ export function useApprove({ options }: HooksOptions<string, Error, ApprovePaylo
       if (waitForConfirmation && hash) {
         const txResult = await waitForDeployOrTransaction(hash);
         if (!txResult.executionResult.success) {
-          throw new Error(txResult.executionResult.errorMessage || "Transaction execution failed");
+          throw new Error(
+            txResult.executionResult.errorMessage || "Transaction execution failed"
+          );
         }
       }
 
@@ -118,150 +148,103 @@ export function useApprove({ options }: HooksOptions<string, Error, ApprovePaylo
   });
 }
 
+// ============== Queries (use apiClient) ==============
+
 export function useBalanceOf(
   owner: string,
   { options }: QueryHooksOptions<string> = {}
 ) {
-  const clickRef = useClickRef();
-
   return useQuery({
     queryKey: ["yscspr", "balance", owner],
     queryFn: async () => {
-      if (!clickRef) throw new Error("Click ref not initialized");
-
-      const rpcClient = createRpcClient(clickRef);
-      const contractKey = `hash-${YSCSPR_CONTRACT}`;
-
-      try {
-        const result = await rpcClient.getDictionaryItemByIdentifier(null, {
-          contractNamedKey: {
-            key: contractKey,
-            dictionaryName: "balances",
-            dictionaryItemKey: owner,
-          },
-        });
-
-        return result.storedValue?.clValue?.toString() || "0";
-      } catch {
-        return "0";
-      }
+      const { data } = await apiClient.get<TokenResponse>("/stayer/yscspr", {
+        params: { address: owner },
+      });
+      return data.balance || "0";
     },
-    enabled: !!clickRef && !!owner,
+    enabled: !!owner,
     ...options,
   });
 }
 
 export function useTotalSupply({ options }: QueryHooksOptions<string> = {}) {
-  const clickRef = useClickRef();
-
   return useQuery({
     queryKey: ["yscspr", "total-supply"],
     queryFn: async () => {
-      if (!clickRef) throw new Error("Click ref not initialized");
-
-      const rpcClient = createRpcClient(clickRef);
-      const contractKey = `hash-${YSCSPR_CONTRACT}`;
-
-      const result = await rpcClient.queryLatestGlobalState(contractKey, ["total_supply"]);
-      return result.storedValue?.clValue?.toString() || "0";
+      const { data } = await apiClient.get<TokenResponse>("/stayer/yscspr");
+      return data.total_supply;
     },
-    enabled: !!clickRef,
     ...options,
   });
 }
 
-export function useAllowance(
-  owner: string,
-  spender: string,
-  { options }: QueryHooksOptions<string> = {}
-) {
-  const clickRef = useClickRef();
-
+export function useTokenInfo({
+  options,
+}: QueryHooksOptions<{ name: string; symbol: string; decimals: number }> = {}) {
   return useQuery({
-    queryKey: ["yscspr", "allowance", owner, spender],
+    queryKey: ["yscspr", "info"],
     queryFn: async () => {
-      if (!clickRef) throw new Error("Click ref not initialized");
-
-      const rpcClient = createRpcClient(clickRef);
-      const contractKey = `hash-${YSCSPR_CONTRACT}`;
-
-      try {
-        // Allowance dictionary key is typically owner_spender
-        const dictKey = `${owner}_${spender}`;
-        const result = await rpcClient.getDictionaryItemByIdentifier(null, {
-          contractNamedKey: {
-            key: contractKey,
-            dictionaryName: "allowances",
-            dictionaryItemKey: dictKey,
-          },
-        });
-
-        return result.storedValue?.clValue?.toString() || "0";
-      } catch {
-        return "0";
-      }
+      const { data } = await apiClient.get<TokenResponse>("/stayer/yscspr");
+      return {
+        name: data.name,
+        symbol: data.symbol,
+        decimals: data.decimals,
+      };
     },
-    enabled: !!clickRef && !!owner && !!spender,
+    staleTime: Infinity,
     ...options,
   });
 }
 
 export function useTokenName({ options }: QueryHooksOptions<string> = {}) {
-  const clickRef = useClickRef();
-
   return useQuery({
     queryKey: ["yscspr", "name"],
     queryFn: async () => {
-      if (!clickRef) throw new Error("Click ref not initialized");
-
-      const rpcClient = createRpcClient(clickRef);
-      const contractKey = `hash-${YSCSPR_CONTRACT}`;
-
-      const result = await rpcClient.queryLatestGlobalState(contractKey, ["name"]);
-      return result.storedValue?.clValue?.toString() || "ysCSPR";
+      const { data } = await apiClient.get<TokenResponse>("/stayer/yscspr");
+      return data.name;
     },
-    enabled: !!clickRef,
     staleTime: Infinity,
     ...options,
   });
 }
 
 export function useTokenSymbol({ options }: QueryHooksOptions<string> = {}) {
-  const clickRef = useClickRef();
-
   return useQuery({
     queryKey: ["yscspr", "symbol"],
     queryFn: async () => {
-      if (!clickRef) throw new Error("Click ref not initialized");
-
-      const rpcClient = createRpcClient(clickRef);
-      const contractKey = `hash-${YSCSPR_CONTRACT}`;
-
-      const result = await rpcClient.queryLatestGlobalState(contractKey, ["symbol"]);
-      return result.storedValue?.clValue?.toString() || "ysCSPR";
+      const { data } = await apiClient.get<TokenResponse>("/stayer/yscspr");
+      return data.symbol;
     },
-    enabled: !!clickRef,
     staleTime: Infinity,
     ...options,
   });
 }
 
 export function useTokenDecimals({ options }: QueryHooksOptions<number> = {}) {
-  const clickRef = useClickRef();
-
   return useQuery({
     queryKey: ["yscspr", "decimals"],
     queryFn: async () => {
-      if (!clickRef) throw new Error("Click ref not initialized");
-
-      const rpcClient = createRpcClient(clickRef);
-      const contractKey = `hash-${YSCSPR_CONTRACT}`;
-
-      const result = await rpcClient.queryLatestGlobalState(contractKey, ["decimals"]);
-      return Number(result.storedValue?.clValue?.toString() || "9");
+      const { data } = await apiClient.get<TokenResponse>("/stayer/yscspr");
+      return data.decimals;
     },
-    enabled: !!clickRef,
     staleTime: Infinity,
+    ...options,
+  });
+}
+
+export function useIsAuthorized(
+  address: string,
+  { options }: QueryHooksOptions<boolean> = {}
+) {
+  return useQuery({
+    queryKey: ["yscspr", "is-authorized", address],
+    queryFn: async () => {
+      const { data } = await apiClient.get<TokenResponse>("/stayer/yscspr", {
+        params: { check_authorized: address },
+      });
+      return data.is_authorized || false;
+    },
+    enabled: !!address,
     ...options,
   });
 }

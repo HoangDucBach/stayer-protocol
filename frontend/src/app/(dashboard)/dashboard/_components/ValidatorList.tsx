@@ -63,10 +63,8 @@ interface StayerValidatorProps extends StackProps {
 export function StayerValidator({ validator, ...rest }: StayerValidatorProps) {
   const { data: registryData, isLoading: isRegistryLoading } =
     useGetValidatorRegistry(validator.public_key, {
-      options: {
-        enabled: !!validator.public_key,
-        staleTime: 1 * 60 * 60 * 1000, // 1 hour
-      },
+      enabled: !!validator.public_key,
+      staleTime: 1 * 60 * 60 * 1000, // 1 hour
     });
 
   const metricFields = [

@@ -1,15 +1,22 @@
+"use client";
+
 import { useClickRef } from "@make-software/csprclick-ui";
-import { useMutation, useQuery, UseMutationOptions, UseQueryOptions } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQuery,
+  UseMutationOptions,
+  UseQueryOptions,
+} from "@tanstack/react-query";
 import {
   Args,
   CLValue,
   PublicKey,
   ContractCallBuilder,
-  HttpHandler,
-  RpcClient,
+  TransactionWrapper,
 } from "casper-js-sdk";
 import { STAYER_VAULT_CONTRACT, CASPER_CHAIN_NAME } from "@/configs/constants";
 import { waitForDeployOrTransaction } from "@/libs/casper";
+import { apiClient } from "@/libs/api";
 import type {
   Position,
   VaultParams,
@@ -20,16 +27,6 @@ import type {
   LiquidatePayload,
 } from "@/types/core";
 
-// Helper to create RPC client from cspr.click proxy
-function createRpcClient(clickRef: ReturnType<typeof useClickRef>) {
-  const proxy = clickRef?.getCsprCloudProxy();
-  if (!proxy) throw new Error("CSPR.cloud proxy not available");
-
-  const handler = new HttpHandler(proxy.RpcURL);
-  handler.setCustomHeaders({ Authorization: proxy.RpcDigestToken });
-  return new RpcClient(handler);
-}
-
 type HooksOptions<TData = unknown, TError = Error, TVariables = void> = {
   options?: Omit<UseMutationOptions<TData, TError, TVariables>, "mutationFn">;
 };
@@ -38,7 +35,19 @@ type QueryHooksOptions<TData = unknown, TError = Error> = {
   options?: Omit<UseQueryOptions<TData, TError>, "queryKey" | "queryFn">;
 };
 
-export function useDeposit({ options }: HooksOptions<string, Error, DepositPayload> = {}) {
+interface VaultResponse {
+  total_collateral: string;
+  total_debt: string;
+  params: VaultParams | null;
+  paused: boolean;
+  position: Position | null;
+}
+
+// ============== Mutations (keep SDK) ==============
+
+export function useDeposit({
+  options,
+}: HooksOptions<string, Error, DepositPayload> = {}) {
   const clickRef = useClickRef();
 
   return useMutation({
@@ -61,7 +70,10 @@ export function useDeposit({ options }: HooksOptions<string, Error, DepositPaylo
         .payment(Number(amount))
         .build();
 
-      const result = await clickRef.send(transaction, activeAccount.public_key);
+      const wrapper = transaction.getTransactionWrapper();
+      const transactionJson = TransactionWrapper.toJSON(wrapper) as object;
+
+      const result = await clickRef.send(transactionJson, activeAccount.public_key);
       if (!result) throw new Error("Transaction failed");
 
       const hash = result.deployHash || result.transactionHash || "";
@@ -69,7 +81,9 @@ export function useDeposit({ options }: HooksOptions<string, Error, DepositPaylo
       if (waitForConfirmation && hash) {
         const txResult = await waitForDeployOrTransaction(hash);
         if (!txResult.executionResult.success) {
-          throw new Error(txResult.executionResult.errorMessage || "Transaction execution failed");
+          throw new Error(
+            txResult.executionResult.errorMessage || "Transaction execution failed"
+          );
         }
       }
 
@@ -79,7 +93,9 @@ export function useDeposit({ options }: HooksOptions<string, Error, DepositPaylo
   });
 }
 
-export function useBorrow({ options }: HooksOptions<string, Error, BorrowPayload> = {}) {
+export function useBorrow({
+  options,
+}: HooksOptions<string, Error, BorrowPayload> = {}) {
   const clickRef = useClickRef();
 
   return useMutation({
@@ -104,7 +120,10 @@ export function useBorrow({ options }: HooksOptions<string, Error, BorrowPayload
         .payment(3_000_000_000)
         .build();
 
-      const result = await clickRef.send(transaction, activeAccount.public_key);
+      const wrapper = transaction.getTransactionWrapper();
+      const transactionJson = TransactionWrapper.toJSON(wrapper) as object;
+
+      const result = await clickRef.send(transactionJson, activeAccount.public_key);
       if (!result) throw new Error("Transaction failed");
 
       const hash = result.deployHash || result.transactionHash || "";
@@ -112,7 +131,9 @@ export function useBorrow({ options }: HooksOptions<string, Error, BorrowPayload
       if (waitForConfirmation && hash) {
         const txResult = await waitForDeployOrTransaction(hash);
         if (!txResult.executionResult.success) {
-          throw new Error(txResult.executionResult.errorMessage || "Transaction execution failed");
+          throw new Error(
+            txResult.executionResult.errorMessage || "Transaction execution failed"
+          );
         }
       }
 
@@ -122,7 +143,9 @@ export function useBorrow({ options }: HooksOptions<string, Error, BorrowPayload
   });
 }
 
-export function useRepay({ options }: HooksOptions<string, Error, RepayPayload> = {}) {
+export function useRepay({
+  options,
+}: HooksOptions<string, Error, RepayPayload> = {}) {
   const clickRef = useClickRef();
 
   return useMutation({
@@ -147,7 +170,10 @@ export function useRepay({ options }: HooksOptions<string, Error, RepayPayload> 
         .payment(3_000_000_000)
         .build();
 
-      const result = await clickRef.send(transaction, activeAccount.public_key);
+      const wrapper = transaction.getTransactionWrapper();
+      const transactionJson = TransactionWrapper.toJSON(wrapper) as object;
+
+      const result = await clickRef.send(transactionJson, activeAccount.public_key);
       if (!result) throw new Error("Transaction failed");
 
       const hash = result.deployHash || result.transactionHash || "";
@@ -155,7 +181,9 @@ export function useRepay({ options }: HooksOptions<string, Error, RepayPayload> 
       if (waitForConfirmation && hash) {
         const txResult = await waitForDeployOrTransaction(hash);
         if (!txResult.executionResult.success) {
-          throw new Error(txResult.executionResult.errorMessage || "Transaction execution failed");
+          throw new Error(
+            txResult.executionResult.errorMessage || "Transaction execution failed"
+          );
         }
       }
 
@@ -165,11 +193,16 @@ export function useRepay({ options }: HooksOptions<string, Error, RepayPayload> 
   });
 }
 
-export function useWithdraw({ options }: HooksOptions<string, Error, WithdrawPayload> = {}) {
+export function useWithdraw({
+  options,
+}: HooksOptions<string, Error, WithdrawPayload> = {}) {
   const clickRef = useClickRef();
 
   return useMutation({
-    mutationFn: async ({ collateralAmount, waitForConfirmation }: WithdrawPayload) => {
+    mutationFn: async ({
+      collateralAmount,
+      waitForConfirmation,
+    }: WithdrawPayload) => {
       if (!clickRef) throw new Error("Click ref not initialized");
 
       const activeAccount = clickRef.currentAccount;
@@ -178,7 +211,7 @@ export function useWithdraw({ options }: HooksOptions<string, Error, WithdrawPay
       const senderPublicKey = PublicKey.fromHex(activeAccount.public_key);
 
       const args = Args.fromMap({
-        collateral_amount: CLValue.newCLUInt256(collateralAmount),
+        yscspr_amount: CLValue.newCLUInt256(collateralAmount),
       });
 
       const transaction = new ContractCallBuilder()
@@ -190,7 +223,10 @@ export function useWithdraw({ options }: HooksOptions<string, Error, WithdrawPay
         .payment(3_000_000_000)
         .build();
 
-      const result = await clickRef.send(transaction, activeAccount.public_key);
+      const wrapper = transaction.getTransactionWrapper();
+      const transactionJson = TransactionWrapper.toJSON(wrapper) as object;
+
+      const result = await clickRef.send(transactionJson, activeAccount.public_key);
       if (!result) throw new Error("Transaction failed");
 
       const hash = result.deployHash || result.transactionHash || "";
@@ -198,7 +234,9 @@ export function useWithdraw({ options }: HooksOptions<string, Error, WithdrawPay
       if (waitForConfirmation && hash) {
         const txResult = await waitForDeployOrTransaction(hash);
         if (!txResult.executionResult.success) {
-          throw new Error(txResult.executionResult.errorMessage || "Transaction execution failed");
+          throw new Error(
+            txResult.executionResult.errorMessage || "Transaction execution failed"
+          );
         }
       }
 
@@ -208,11 +246,17 @@ export function useWithdraw({ options }: HooksOptions<string, Error, WithdrawPay
   });
 }
 
-export function useLiquidate({ options }: HooksOptions<string, Error, LiquidatePayload> = {}) {
+export function useLiquidate({
+  options,
+}: HooksOptions<string, Error, LiquidatePayload> = {}) {
   const clickRef = useClickRef();
 
   return useMutation({
-    mutationFn: async ({ userAddress, waitForConfirmation }: LiquidatePayload) => {
+    mutationFn: async ({
+      userAddress,
+      debtToCover,
+      waitForConfirmation,
+    }: LiquidatePayload) => {
       if (!clickRef) throw new Error("Click ref not initialized");
 
       const activeAccount = clickRef.currentAccount;
@@ -222,6 +266,7 @@ export function useLiquidate({ options }: HooksOptions<string, Error, LiquidateP
 
       const args = Args.fromMap({
         user: CLValue.newCLByteArray(Buffer.from(userAddress, "hex")),
+        debt_to_cover: CLValue.newCLUInt256(debtToCover),
       });
 
       const transaction = new ContractCallBuilder()
@@ -233,7 +278,10 @@ export function useLiquidate({ options }: HooksOptions<string, Error, LiquidateP
         .payment(5_000_000_000)
         .build();
 
-      const result = await clickRef.send(transaction, activeAccount.public_key);
+      const wrapper = transaction.getTransactionWrapper();
+      const transactionJson = TransactionWrapper.toJSON(wrapper) as object;
+
+      const result = await clickRef.send(transactionJson, activeAccount.public_key);
       if (!result) throw new Error("Transaction failed");
 
       const hash = result.deployHash || result.transactionHash || "";
@@ -241,7 +289,9 @@ export function useLiquidate({ options }: HooksOptions<string, Error, LiquidateP
       if (waitForConfirmation && hash) {
         const txResult = await waitForDeployOrTransaction(hash);
         if (!txResult.executionResult.success) {
-          throw new Error(txResult.executionResult.errorMessage || "Transaction execution failed");
+          throw new Error(
+            txResult.executionResult.errorMessage || "Transaction execution failed"
+          );
         }
       }
 
@@ -251,130 +301,76 @@ export function useLiquidate({ options }: HooksOptions<string, Error, LiquidateP
   });
 }
 
+// ============== Queries (use apiClient) ==============
+
 export function useGetPosition(
   userAddress: string,
   { options }: QueryHooksOptions<Position | null> = {}
 ) {
-  const clickRef = useClickRef();
-
   return useQuery({
     queryKey: ["stayer-vault", "position", userAddress],
     queryFn: async () => {
-      if (!clickRef) throw new Error("Click ref not initialized");
-
-      const rpcClient = createRpcClient(clickRef);
-      const contractKey = `hash-${STAYER_VAULT_CONTRACT}`;
-
-      try {
-        const result = await rpcClient.getDictionaryItemByIdentifier(null, {
-          contractNamedKey: {
-            key: contractKey,
-            dictionaryName: "positions",
-            dictionaryItemKey: userAddress,
-          },
-        });
-
-        const storedValue = result.storedValue?.clValue;
-        if (!storedValue) return null;
-
-        // Parse the position data from CLValue map
-        // The structure depends on how the contract stores positions
-        const mapValue = storedValue.map;
-        if (mapValue) {
-          // For map type storage
-          return {
-            owner: mapValue.get("owner")?.stringVal?.toString() || userAddress,
-            collateral: mapValue.get("collateral")?.ui256?.toString() || "0",
-            debt: mapValue.get("debt")?.ui256?.toString() || "0",
-            entry_price: mapValue.get("entry_price")?.ui256?.toString() || "0",
-            opened_at: Number(mapValue.get("opened_at")?.ui64?.toString() || 0),
-          } as Position;
-        }
-
-        // Fallback: try to parse from any type
-        return {
-          owner: userAddress,
-          collateral: storedValue.toString() || "0",
-          debt: "0",
-          entry_price: "0",
-          opened_at: 0,
-        } as Position;
-      } catch {
-        return null;
-      }
+      const { data } = await apiClient.get<VaultResponse>("/stayer/vault", {
+        params: { user: userAddress },
+      });
+      return data.position;
     },
-    enabled: !!clickRef && !!userAddress,
+    enabled: !!userAddress,
     ...options,
   });
 }
 
-export function useGetVaultParams({ options }: QueryHooksOptions<VaultParams> = {}) {
-  const clickRef = useClickRef();
-
+export function useGetVaultParams({ options }: QueryHooksOptions<VaultParams | null> = {}) {
   return useQuery({
     queryKey: ["stayer-vault", "params"],
     queryFn: async () => {
-      if (!clickRef) throw new Error("Click ref not initialized");
-
-      const rpcClient = createRpcClient(clickRef);
-      const contractKey = `hash-${STAYER_VAULT_CONTRACT}`;
-
-      const [ltvResult, liqThresholdResult, liqPenaltyResult, stabilityFeeResult, minCollateralResult] =
-        await Promise.all([
-          rpcClient.queryLatestGlobalState(contractKey, ["ltv"]),
-          rpcClient.queryLatestGlobalState(contractKey, ["liq_threshold"]),
-          rpcClient.queryLatestGlobalState(contractKey, ["liq_penalty"]),
-          rpcClient.queryLatestGlobalState(contractKey, ["stability_fee"]),
-          rpcClient.queryLatestGlobalState(contractKey, ["min_collateral"]),
-        ]);
-
-      return {
-        ltv: Number(ltvResult.storedValue?.clValue?.toString() || "0"),
-        liq_threshold: Number(liqThresholdResult.storedValue?.clValue?.toString() || "0"),
-        liq_penalty: Number(liqPenaltyResult.storedValue?.clValue?.toString() || "0"),
-        stability_fee: Number(stabilityFeeResult.storedValue?.clValue?.toString() || "0"),
-        min_collateral: minCollateralResult.storedValue?.clValue?.toString() || "0",
-      } as VaultParams;
+      const { data } = await apiClient.get<VaultResponse>("/stayer/vault");
+      return data.params;
     },
-    enabled: !!clickRef,
+    ...options,
+  });
+}
+
+export function useGetVaultState({ options }: QueryHooksOptions<VaultResponse> = {}) {
+  return useQuery({
+    queryKey: ["stayer-vault", "state"],
+    queryFn: async () => {
+      const { data } = await apiClient.get<VaultResponse>("/stayer/vault");
+      return data;
+    },
     ...options,
   });
 }
 
 export function useGetTotalCollateral({ options }: QueryHooksOptions<string> = {}) {
-  const clickRef = useClickRef();
-
   return useQuery({
     queryKey: ["stayer-vault", "total-collateral"],
     queryFn: async () => {
-      if (!clickRef) throw new Error("Click ref not initialized");
-
-      const rpcClient = createRpcClient(clickRef);
-      const contractKey = `hash-${STAYER_VAULT_CONTRACT}`;
-
-      const result = await rpcClient.queryLatestGlobalState(contractKey, ["total_collateral"]);
-      return result.storedValue?.clValue?.toString() || "0";
+      const { data } = await apiClient.get<VaultResponse>("/stayer/vault");
+      return data.total_collateral;
     },
-    enabled: !!clickRef,
     ...options,
   });
 }
 
 export function useGetTotalDebt({ options }: QueryHooksOptions<string> = {}) {
-  const clickRef = useClickRef();
-
   return useQuery({
     queryKey: ["stayer-vault", "total-debt"],
     queryFn: async () => {
-      if (!clickRef) throw new Error("Click ref not initialized");
-
-      const rpcClient = createRpcClient(clickRef);
-      const contractKey = `hash-${STAYER_VAULT_CONTRACT}`;
-
-      const result = await rpcClient.queryLatestGlobalState(contractKey, ["total_debt"]);
-      return result.storedValue?.clValue?.toString() || "0";
+      const { data } = await apiClient.get<VaultResponse>("/stayer/vault");
+      return data.total_debt;
     },
-    enabled: !!clickRef,
+    ...options,
+  });
+}
+
+export function useIsVaultPaused({ options }: QueryHooksOptions<boolean> = {}) {
+  return useQuery({
+    queryKey: ["stayer-vault", "paused"],
+    queryFn: async () => {
+      const { data } = await apiClient.get<VaultResponse>("/stayer/vault");
+      return data.paused;
+    },
     ...options,
   });
 }
@@ -383,54 +379,30 @@ export function useCalculateHealthFactor(
   userAddress: string,
   { options }: QueryHooksOptions<string> = {}
 ) {
-  const clickRef = useClickRef();
-
   return useQuery({
     queryKey: ["stayer-vault", "health-factor", userAddress],
     queryFn: async () => {
-      if (!clickRef) throw new Error("Click ref not initialized");
+      const { data } = await apiClient.get<VaultResponse>("/stayer/vault", {
+        params: { user: userAddress },
+      });
 
-      // Health factor calculation needs to be done client-side
-      // since Casper doesn't have view functions
-      const rpcClient = createRpcClient(clickRef);
-      const contractKey = `hash-${STAYER_VAULT_CONTRACT}`;
+      const position = data.position;
+      const params = data.params;
 
-      try {
-        // Get position data
-        const positionResult = await rpcClient.getDictionaryItemByIdentifier(null, {
-          contractNamedKey: {
-            key: contractKey,
-            dictionaryName: "positions",
-            dictionaryItemKey: userAddress,
-          },
-        });
+      if (!position || !params) return "0";
 
-        const storedValue = positionResult.storedValue?.clValue;
-        if (!storedValue) return "0";
+      const collateral = BigInt(position.collateral);
+      const debt = BigInt(position.debt);
 
-        // Parse the position data from CLValue map
-        let collateral = 0;
-        let debt = 0;
-        const mapValue = storedValue.map;
-        if (mapValue) {
-          collateral = Number(mapValue.get("collateral")?.ui256?.toString() || 0);
-          debt = Number(mapValue.get("debt")?.ui256?.toString() || 0);
-        }
+      if (debt === BigInt(0)) return "MAX";
 
-        if (debt === 0) return "MAX";
+      // Health factor = (collateral * liq_threshold) / (debt * 10000)
+      const healthFactor =
+        (collateral * BigInt(params.liq_threshold)) / (debt * BigInt(10000));
 
-        // Get liquidation threshold
-        const liqThresholdResult = await rpcClient.queryLatestGlobalState(contractKey, ["liq_threshold"]);
-        const liqThreshold = Number(liqThresholdResult.storedValue?.clValue?.toString() || "80") / 100;
-
-        // Simple health factor calculation: (collateral * liq_threshold) / debt
-        const healthFactor = (collateral * liqThreshold) / debt;
-        return healthFactor.toFixed(4);
-      } catch {
-        return "0";
-      }
+      return healthFactor.toString();
     },
-    enabled: !!clickRef && !!userAddress,
+    enabled: !!userAddress,
     ...options,
   });
 }

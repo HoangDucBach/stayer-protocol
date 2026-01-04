@@ -1,166 +1,130 @@
+"use client";
+
 import { useQuery, UseQueryOptions } from "@tanstack/react-query";
-import { useClickRef } from "@make-software/csprclick-ui";
-import { PublicKey, HttpHandler, RpcClient } from "casper-js-sdk";
-import { VALIDATOR_REGISTRY_CONTRACT } from "@/configs/constants";
+import { apiClient } from "@/libs/api";
 import type { ValidatorData } from "@/types/core";
 
-// Helper to create RPC client from cspr.click proxy
-function createRpcClient(clickRef: ReturnType<typeof useClickRef>) {
-  const proxy = clickRef?.getCsprCloudProxy();
-  if (!proxy) throw new Error("CSPR.cloud proxy not available");
+type HookOptions<TData = unknown, TError = Error> = Omit<
+  UseQueryOptions<TData, TError>,
+  "queryKey" | "queryFn"
+>;
 
-  const handler = new HttpHandler(proxy.RpcURL);
-  handler.setCustomHeaders({ Authorization: proxy.RpcDigestToken });
-  return new RpcClient(handler);
+interface ValidatorRegistryResponse {
+  network_p_avg: number | null;
+  last_update_era: number | null;
+  validator: ValidatorData | null;
 }
 
-type QueryHooksOptions<TData = unknown, TError = Error> = {
-  options?: Omit<UseQueryOptions<TData, TError>, "queryKey" | "queryFn">;
-};
-
+/**
+ * Get validator data from ValidatorRegistry contract
+ */
 export function useGetValidator(
   validatorPublicKey: string,
-  { options }: QueryHooksOptions<ValidatorData | null> = {}
+  options?: HookOptions<ValidatorData | null>
 ) {
-  const clickRef = useClickRef();
-
   return useQuery({
     queryKey: ["validator-registry", "validator", validatorPublicKey],
     queryFn: async () => {
-      if (!clickRef) throw new Error("Click ref not initialized");
-
-      const rpcClient = createRpcClient(clickRef);
-      const contractKey = `hash-${VALIDATOR_REGISTRY_CONTRACT}`;
-
-      try {
-        // Get validator data from dictionary using public key as key
-        const pubKey = PublicKey.fromHex(validatorPublicKey);
-        const dictKey = pubKey.toHex();
-
-        const result = await rpcClient.getDictionaryItemByIdentifier(null, {
-          contractNamedKey: {
-            key: contractKey,
-            dictionaryName: "validators",
-            dictionaryItemKey: dictKey,
-          },
-        });
-
-        const storedValue = result.storedValue?.clValue;
-        if (!storedValue) return null;
-
-        // Parse validator data from CLValue map
-        const mapValue = storedValue.map;
-        if (mapValue) {
-          return {
-            fee: Number(mapValue.get("fee")?.ui32?.toString() || 0),
-            is_active: mapValue.get("is_active")?.bool?.toString() === "true",
-            decay_factor: Number(mapValue.get("decay_factor")?.ui64?.toString() || 0),
-            p_score: Number(mapValue.get("p_score")?.ui64?.toString() || 0),
-            updated_era: Number(mapValue.get("updated_era")?.ui64?.toString() || 0),
-          } as ValidatorData;
-        }
-
-        // Fallback for simple value types
-        return {
-          fee: 0,
-          is_active: true,
-          decay_factor: 0,
-          p_score: 0,
-          updated_era: 0,
-        } as ValidatorData;
-      } catch {
-        return null;
-      }
+      const { data } = await apiClient.get<ValidatorRegistryResponse>(
+        "/stayer/validator-registry",
+        { params: { pubkey: validatorPublicKey } }
+      );
+      return data.validator;
     },
-    enabled: !!clickRef && !!validatorPublicKey,
+    enabled: !!validatorPublicKey,
+    staleTime: 5 * 60 * 1000, // 5 minutes
     ...options,
   });
 }
 
-export function useGetNetworkPAvg({ options }: QueryHooksOptions<number> = {}) {
-  const clickRef = useClickRef();
-
+/**
+ * Get network P average from ValidatorRegistry contract
+ */
+export function useGetNetworkPAvg(options?: HookOptions<number>) {
   return useQuery({
     queryKey: ["validator-registry", "network-p-avg"],
     queryFn: async () => {
-      if (!clickRef) throw new Error("Click ref not initialized");
-
-      const rpcClient = createRpcClient(clickRef);
-      const contractKey = `hash-${VALIDATOR_REGISTRY_CONTRACT}`;
-
-      const result = await rpcClient.queryLatestGlobalState(contractKey, ["network_p_avg"]);
-      return Number(result.storedValue?.clValue?.toString() || "0");
+      const { data } = await apiClient.get<ValidatorRegistryResponse>(
+        "/stayer/validator-registry"
+      );
+      return data.network_p_avg ?? 0;
     },
-    enabled: !!clickRef,
+    staleTime: 5 * 60 * 1000,
     ...options,
   });
 }
 
-export function useGetLastUpdateEra({ options }: QueryHooksOptions<number> = {}) {
-  const clickRef = useClickRef();
-
+/**
+ * Get last update era from ValidatorRegistry contract
+ */
+export function useGetLastUpdateEra(options?: HookOptions<number>) {
   return useQuery({
     queryKey: ["validator-registry", "last-update-era"],
     queryFn: async () => {
-      if (!clickRef) throw new Error("Click ref not initialized");
-
-      const rpcClient = createRpcClient(clickRef);
-      const contractKey = `hash-${VALIDATOR_REGISTRY_CONTRACT}`;
-
-      const result = await rpcClient.queryLatestGlobalState(contractKey, ["last_update_era"]);
-      return Number(result.storedValue?.clValue?.toString() || "0");
+      const { data } = await apiClient.get<ValidatorRegistryResponse>(
+        "/stayer/validator-registry"
+      );
+      return data.last_update_era ?? 0;
     },
-    enabled: !!clickRef,
+    staleTime: 5 * 60 * 1000,
     ...options,
   });
 }
 
+/**
+ * Get full validator registry state
+ */
+export function useGetValidatorRegistryState(
+  options?: HookOptions<ValidatorRegistryResponse>
+) {
+  return useQuery({
+    queryKey: ["validator-registry", "state"],
+    queryFn: async () => {
+      const { data } = await apiClient.get<ValidatorRegistryResponse>(
+        "/stayer/validator-registry"
+      );
+      return data;
+    },
+    staleTime: 5 * 60 * 1000,
+    ...options,
+  });
+}
+
+/**
+ * Check if a validator is valid in the registry
+ * Based on contract logic: p_score > 0 && is_active && era not stale
+ */
 export function useIsValidValidator(
   validatorPublicKey: string,
   currentEra: number,
-  { options }: QueryHooksOptions<boolean> = {}
+  options?: HookOptions<boolean>
 ) {
-  const clickRef = useClickRef();
+  const { data: lastUpdateEra } = useGetLastUpdateEra();
+  const { data: validatorData } = useGetValidator(validatorPublicKey);
+
+  const STALE_DATA_ERAS = 3; // From contract
 
   return useQuery({
-    queryKey: ["validator-registry", "is-valid", validatorPublicKey, currentEra],
+    queryKey: [
+      "validator-registry",
+      "is-valid",
+      validatorPublicKey,
+      currentEra,
+    ],
     queryFn: async () => {
-      if (!clickRef) throw new Error("Click ref not initialized");
+      if (!validatorData) return false;
 
-      // Get validator data and check if valid based on era and active status
-      const rpcClient = createRpcClient(clickRef);
-      const contractKey = `hash-${VALIDATOR_REGISTRY_CONTRACT}`;
+      const isActive = validatorData.is_active;
+      const pScore = validatorData.p_score;
+      const dataAge = currentEra - (lastUpdateEra || 0);
 
-      try {
-        const pubKey = PublicKey.fromHex(validatorPublicKey);
-        const dictKey = pubKey.toHex();
-
-        const result = await rpcClient.getDictionaryItemByIdentifier(null, {
-          contractNamedKey: {
-            key: contractKey,
-            dictionaryName: "validators",
-            dictionaryItemKey: dictKey,
-          },
-        });
-
-        const storedValue = result.storedValue?.clValue;
-        if (!storedValue) return false;
-
-        // Parse validator data from CLValue map
-        const mapValue = storedValue.map;
-        if (!mapValue) return false;
-
-        // Check if validator is active and updated recently
-        const isActive = mapValue.get("is_active")?.bool?.toString() === "true";
-        const updatedEra = Number(mapValue.get("updated_era")?.ui64?.toString() || 0);
-
-        // Valid if active and updated within a reasonable era range
-        return isActive && (currentEra - updatedEra) <= 10;
-      } catch {
-        return false;
-      }
+      return pScore > 0 && isActive && dataAge <= STALE_DATA_ERAS;
     },
-    enabled: !!clickRef && !!validatorPublicKey && currentEra > 0,
+    enabled:
+      !!validatorPublicKey &&
+      currentEra > 0 &&
+      validatorData !== undefined,
+    staleTime: 5 * 60 * 1000,
     ...options,
   });
 }
