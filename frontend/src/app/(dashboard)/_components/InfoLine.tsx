@@ -12,7 +12,7 @@ export function InfoLine(props: Props) {
       return props.rightNode;
     }
     return (
-      <Text fontSize="sm" color="primary">
+      <Text fontSize="sm" color="fg">
         {props.rightText}
       </Text>
     );

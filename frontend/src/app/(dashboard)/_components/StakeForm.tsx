@@ -30,9 +30,11 @@ import BigNumber from "bignumber.js";
 import { motion } from "framer-motion";
 import { toaster } from "@/components/ui/toaster";
 import { Field } from "@/components/ui/field";
+import { Avatar } from "@/components/ui/avatar";
+import { SelectedValidator } from "./StakeWidget";
 
 type Props = {
-  validator: string;
+  validator: SelectedValidator;
   onBack?: () => void;
 };
 
@@ -76,7 +78,7 @@ export function StakeForm({ validator, onBack }: Props) {
   const { data: accountBalance } = useGetAccount(
     clickRef?.currentAccount?.public_key || ""
   );
-  const { data: validatorData } = useGetValidator(validator);
+  const { data: validatorData } = useGetValidator(validator.publicKey);
 
   const { data: networkPAvg } = useGetNetworkPAvg();
   const { data: currentEra } = useGetCurrentEra();
@@ -162,13 +164,9 @@ export function StakeForm({ validator, onBack }: Props) {
       return;
     }
 
-    const amountInMotes = new BigNumber(data.amount)
-      .multipliedBy(MOTE_RATE)
-      .toFixed(0);
-
     stakeMutation.mutate({
-      validatorPublicKey: validator,
-      amount: amountInMotes,
+      validatorPublicKey: validator.publicKey,
+      amount: amount,
       currentEra,
       waitForConfirmation: false,
     });
@@ -264,11 +262,9 @@ export function StakeForm({ validator, onBack }: Props) {
                 <Text fontSize="sm" color="primary.fg">
                   ({bonusAmount} bonus)
                 </Text>
-                <Image
+                <Avatar
                   src="/assets/yscspr-token-icon.svg"
-                  alt="yCSPR Token Icon"
-                  w={4}
-                  h={4}
+                  size="2xs"
                 />
               </HStack>
             }
@@ -279,14 +275,15 @@ export function StakeForm({ validator, onBack }: Props) {
             leftText="Validator"
             rightNode={
               <HStack gap={2}>
-                <Image
-                  src="/assets/yscspr-token-icon.svg"
-                  alt="Validator Icon"
-                  w={4}
-                  h={4}
+                <Avatar
+                  src={
+                    validator.logo ||
+                    `https://api.dicebear.com/7.x/identicon/svg?seed=${validator.publicKey}`
+                  }
+                  size="2xs"
                 />
                 <Text fontSize="sm" color="fg" textDecoration="underline">
-                  {formatAddress(validator)}
+                  {validator.formattedAddress}
                 </Text>
               </HStack>
             }

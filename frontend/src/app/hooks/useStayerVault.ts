@@ -11,7 +11,6 @@ import {
   Args,
   CLValue,
   PublicKey,
-  ContractCallBuilder,
   TransactionWrapper,
 } from "casper-js-sdk";
 import { STAYER_VAULT_CONTRACT, CASPER_CHAIN_NAME } from "@/configs/constants";
@@ -20,6 +19,10 @@ import { apiClient } from "@/libs/api";
 import {
   buildOdraProxyTransaction,
   buildDepositInnerArgs,
+  buildBorrowInnerArgs,
+  buildRepayInnerArgs,
+  buildWithdrawInnerArgs,
+  buildLiquidateInnerArgs,
 } from "@/libs/odra-proxy";
 import type {
   Position,
@@ -114,21 +117,16 @@ export function useBorrow({
 
       const senderPublicKey = PublicKey.fromHex(activeAccount.public_key);
 
-      const args = Args.fromMap({
-        cusd_amount: CLValue.newCLUInt256(cusdAmount),
+      const innerArgs = buildBorrowInnerArgs(cusdAmount);
+
+      const transactionJson = await buildOdraProxyTransaction({
+        senderPublicKey,
+        packageHash: STAYER_VAULT_CONTRACT,
+        entryPoint: "borrow",
+        innerArgs,
+        attachedValue: "0",
+        paymentAmount: 3_000_000_000,
       });
-
-      const transaction = new ContractCallBuilder()
-        .from(senderPublicKey)
-        .byHash(STAYER_VAULT_CONTRACT)
-        .entryPoint("borrow")
-        .runtimeArgs(args)
-        .chainName(CASPER_CHAIN_NAME)
-        .payment(3_000_000_000)
-        .build();
-
-      const wrapper = transaction.getTransactionWrapper();
-      const transactionJson = TransactionWrapper.toJSON(wrapper) as object;
 
       const result = await clickRef.send(
         transactionJson,
@@ -168,21 +166,16 @@ export function useRepay({
 
       const senderPublicKey = PublicKey.fromHex(activeAccount.public_key);
 
-      const args = Args.fromMap({
-        cusd_amount: CLValue.newCLUInt256(cusdAmount),
+      const innerArgs = buildRepayInnerArgs(cusdAmount);
+
+      const transactionJson = await buildOdraProxyTransaction({
+        senderPublicKey,
+        packageHash: STAYER_VAULT_CONTRACT,
+        entryPoint: "repay",
+        innerArgs,
+        attachedValue: "0",
+        paymentAmount: 3_000_000_000,
       });
-
-      const transaction = new ContractCallBuilder()
-        .from(senderPublicKey)
-        .byHash(STAYER_VAULT_CONTRACT)
-        .entryPoint("repay")
-        .runtimeArgs(args)
-        .chainName(CASPER_CHAIN_NAME)
-        .payment(3_000_000_000)
-        .build();
-
-      const wrapper = transaction.getTransactionWrapper();
-      const transactionJson = TransactionWrapper.toJSON(wrapper) as object;
 
       const result = await clickRef.send(
         transactionJson,
@@ -225,21 +218,16 @@ export function useWithdraw({
 
       const senderPublicKey = PublicKey.fromHex(activeAccount.public_key);
 
-      const args = Args.fromMap({
-        yscspr_amount: CLValue.newCLUInt256(collateralAmount),
+      const innerArgs = buildWithdrawInnerArgs(collateralAmount);
+
+      const transactionJson = await buildOdraProxyTransaction({
+        senderPublicKey,
+        packageHash: STAYER_VAULT_CONTRACT,
+        entryPoint: "withdraw",
+        innerArgs,
+        attachedValue: "0",
+        paymentAmount: 3_000_000_000,
       });
-
-      const transaction = new ContractCallBuilder()
-        .from(senderPublicKey)
-        .byHash(STAYER_VAULT_CONTRACT)
-        .entryPoint("withdraw")
-        .runtimeArgs(args)
-        .chainName(CASPER_CHAIN_NAME)
-        .payment(3_000_000_000)
-        .build();
-
-      const wrapper = transaction.getTransactionWrapper();
-      const transactionJson = TransactionWrapper.toJSON(wrapper) as object;
 
       const result = await clickRef.send(
         transactionJson,
@@ -283,22 +271,16 @@ export function useLiquidate({
 
       const senderPublicKey = PublicKey.fromHex(activeAccount.public_key);
 
-      const args = Args.fromMap({
-        user: CLValue.newCLByteArray(Buffer.from(userAddress, "hex")),
-        debt_to_cover: CLValue.newCLUInt256(debtToCover),
+      const innerArgs = buildLiquidateInnerArgs(userAddress, debtToCover);
+
+      const transactionJson = await buildOdraProxyTransaction({
+        senderPublicKey,
+        packageHash: STAYER_VAULT_CONTRACT,
+        entryPoint: "liquidate",
+        innerArgs,
+        attachedValue: "0",
+        paymentAmount: 5_000_000_000,
       });
-
-      const transaction = new ContractCallBuilder()
-        .from(senderPublicKey)
-        .byHash(STAYER_VAULT_CONTRACT)
-        .entryPoint("liquidate")
-        .runtimeArgs(args)
-        .chainName(CASPER_CHAIN_NAME)
-        .payment(5_000_000_000)
-        .build();
-
-      const wrapper = transaction.getTransactionWrapper();
-      const transactionJson = TransactionWrapper.toJSON(wrapper) as object;
 
       const result = await clickRef.send(
         transactionJson,
@@ -336,6 +318,7 @@ export function useGetPosition(
       const { data } = await apiClient.get<VaultResponse>("/stayer/vault", {
         params: { user: userAddress },
       });
+      console.log("Position data:", data.position);
       return data.position;
     },
     enabled: !!userAddress,
@@ -350,6 +333,7 @@ export function useGetVaultParams({
     queryKey: ["stayer-vault", "params"],
     queryFn: async () => {
       const { data } = await apiClient.get<VaultResponse>("/stayer/vault");
+      console.log("Vault params data:", data);
       return data.params;
     },
     ...options,

@@ -17,14 +17,19 @@ import { InfoLine } from "./InfoLine";
 import { FormCard } from "./FormCard";
 import { Select } from "@chakra-ui/react";
 import { HiArrowDown, HiArrowRight } from "react-icons/hi";
-import { useGetValidator, useGetNetworkPAvg } from "@/app/hooks/useValidatorRegistry";
+import {
+  useGetValidator,
+  useGetNetworkPAvg,
+} from "@/app/hooks/useValidatorRegistry";
 import { useGetValidators, useGetCurrentEra } from "@/app/hooks/useCasper";
 import { formatAddress } from "@/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { Field } from "@/components/ui/field";
+import { Avatar } from "@/components/ui/avatar";
+import { SelectedValidator } from "./StakeWidget";
 
 type Props = {
-  onNext: (validator: string) => void;
+  onNext: (validator: SelectedValidator) => void;
 };
 
 const validatorSchema = z.object({
@@ -68,10 +73,11 @@ export function ChooseValidatorForm({ onNext }: Props) {
     return validatorsResponse.data
       .filter((validator) => validator.is_active)
       .map((validator) => ({
-        value: validator.public_key,
-        label: formatAddress(validator.public_key),
+        publicKey: validator.public_key,
+        formattedAddress: formatAddress(validator.public_key),
         totalStake: validator.total_stake,
         fee: validator.fee,
+        logo: validator.account_info?.info.owner?.branding?.logo?.svg,
       }));
   }, [validatorsResponse]);
 
@@ -79,37 +85,39 @@ export function ChooseValidatorForm({ onNext }: Props) {
     () =>
       createListCollection({
         items: validatorList,
-        itemToValue: (item) => item.value,
-        itemToString: (item) => item.label,
+        itemToValue: (item) => item.publicKey,
+        itemToString: (item) => item.formattedAddress,
       }),
     [validatorList]
   );
 
   const selectedValidatorInfo = validatorList.find(
-    (v) => v.value === selectedValidator[0]
+    (v) => v.publicKey === selectedValidator[0]
   );
 
   const onSubmit = (data: ValidatorFormData) => {
-    if (data.validator[0]) {
-      onNext(data.validator[0]);
+    if (data.validator[0] && selectedValidatorInfo) {
+      onNext(selectedValidatorInfo);
     }
   };
 
   const { data: networkPAvg } = useGetNetworkPAvg();
 
   // Formula: (p_score * 10000) / p_avg, clamped between 0.5x and 1.5x
-  const multiplier = validatorData?.p_score && networkPAvg
-    ? (() => {
-        const mult = (validatorData.p_score * 10000) / networkPAvg;
-        const clampedMult = Math.max(5000, Math.min(15000, mult));
-        return (clampedMult / 10000).toFixed(2) + "x";
-      })()
-    : "1.00x";
+  const multiplier =
+    validatorData?.p_score && networkPAvg
+      ? (() => {
+          const mult = (validatorData.p_score * 10000) / networkPAvg;
+          const clampedMult = Math.max(5000, Math.min(15000, mult));
+          return (clampedMult / 10000).toFixed(2) + "x";
+        })()
+      : "1.00x";
 
   // Calculate APY from validator fee (simplified estimate)
-  const apy = validatorData?.fee !== undefined && selectedValidatorInfo
-    ? ((100 - validatorData.fee) / 10).toFixed(1) + "%"
-    : "0.0%";
+  const apy =
+    validatorData?.fee !== undefined && selectedValidatorInfo
+      ? ((100 - validatorData.fee) / 10).toFixed(1) + "%"
+      : "0.0%";
 
   console.log("Selected Validator Data:", validatorData);
   console.log("Network P Avg:", networkPAvg);
@@ -122,104 +130,110 @@ export function ChooseValidatorForm({ onNext }: Props) {
       transition={{ duration: 0.3, ease: "easeOut" }}
     >
       <form onSubmit={handleSubmit(onSubmit)}>
-      <FormCard gradient>
-        <Controller
-          name="validator"
-          control={control}
-          render={({ field }) => (
-            <Select.Root
-              size="lg"
-              collection={collection}
-              value={field.value}
-              onValueChange={(e) => field.onChange(e.value)}
-            >
-              <Select.Control>
-                <Select.Trigger
-                  bg="red.border"
-                  borderRadius="xl"
-                  fontSize="md"
-                  fontWeight="medium"
-                  color="demonicRed.100"
-                  border="none"
-                  h="fit"
-                  p={3}
-                  _focus={{ outline: "none", boxShadow: "none" }}
-                >
-                  <Select.ValueText placeholder="Choose validators" />
-                </Select.Trigger>
-                <Select.IndicatorGroup>
-                  {isLoadingValidators && (
-                    <Spinner size="xs" borderWidth="1.5px" color="fg.muted" />
-                  )}
-                  <Select.Indicator asChild>
-                    <Icon as={HiArrowDown} color="demonicRed.100" />
-                  </Select.Indicator>
-                </Select.IndicatorGroup>
-              </Select.Control>
-              <Portal>
-                <Select.Positioner>
-                  <Select.Content>
-                    {collection.items.map((validator) => (
-                      <Select.Item key={validator.value} item={validator}>
-                        <Select.ItemText>{validator.label}</Select.ItemText>
-                        <Select.ItemIndicator />
-                      </Select.Item>
-                    ))}
-                  </Select.Content>
-                </Select.Positioner>
-              </Portal>
-            </Select.Root>
-          )}
-        />
+        <FormCard gradient>
+          <Controller
+            name="validator"
+            control={control}
+            render={({ field }) => (
+              <Select.Root
+                size="lg"
+                collection={collection}
+                value={field.value}
+                onValueChange={(e) => field.onChange(e.value)}
+              >
+                <Select.Control>
+                  <Select.Trigger
+                    bg="red.border"
+                    borderRadius="xl"
+                    fontSize="md"
+                    fontWeight="medium"
+                    color="demonicRed.100"
+                    border="none"
+                    h="fit"
+                    p={3}
+                    _focus={{ outline: "none", boxShadow: "none" }}
+                  >
+                    <Select.ValueText placeholder="Choose validators" />
+                  </Select.Trigger>
+                  <Select.IndicatorGroup>
+                    {isLoadingValidators && (
+                      <Spinner size="xs" borderWidth="1.5px" color="fg.muted" />
+                    )}
+                    <Select.Indicator asChild>
+                      <Icon as={HiArrowDown} color="demonicRed.100" />
+                    </Select.Indicator>
+                  </Select.IndicatorGroup>
+                </Select.Control>
+                <Portal>
+                  <Select.Positioner>
+                    <Select.Content>
+                      {collection.items.map((validator) => (
+                        <Select.Item key={validator.publicKey} item={validator}>
+                          <Avatar
+                            src={
+                              validator.logo ||
+                              `https://api.dicebear.com/7.x/identicon/svg?seed=${validator.publicKey}`
+                            }
+                          />
+                          <Select.ItemText>{validator.formattedAddress}</Select.ItemText>
+                          <Select.ItemIndicator />
+                        </Select.Item>
+                      ))}
+                    </Select.Content>
+                  </Select.Positioner>
+                </Portal>
+              </Select.Root>
+            )}
+          />
 
-        {/* Info Lines */}
-        <AnimatePresence mode="wait">
-          {selectedValidatorInfo && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.3, ease: "easeInOut" }}
-            >
-              <InfoLine
-                leftText="Multiplier"
-                rightNode={
-                  <Text fontSize="md" color="fg" fontWeight="semibold">
-                    {multiplier}
-                  </Text>
-                }
-              />
+          {/* Info Lines */}
+          <AnimatePresence mode="wait">
+            {selectedValidatorInfo && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.3, ease: "easeInOut" }}
+              >
+                <InfoLine
+                  leftText="Multiplier"
+                  rightNode={
+                    <Text fontSize="md" color="fg" fontWeight="semibold">
+                      {multiplier}
+                    </Text>
+                  }
+                />
 
-              <InfoLine
-                leftText="APY"
-                rightNode={
-                  <Text fontSize="md" color="fg" fontWeight="semibold">
-                    {apy}
-                  </Text>
-                }
-              />
-            </motion.div>
-          )}
-        </AnimatePresence>
+                <InfoLine
+                  leftText="APY"
+                  rightNode={
+                    <Text fontSize="md" color="fg" fontWeight="semibold">
+                      {apy}
+                    </Text>
+                  }
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-        <Button
-          size="lg"
-          bg="#82756840"
-          color="primary.contrast"
-          fontWeight="medium"
-          fontSize="md"
-          borderRadius="xl"
-          mt={2}
-          _hover={{ opacity: 0.9 }}
-          type="submit"
-          disabled={!selectedValidator[0]}
-          justifyContent={"space-between"}
-          w="full"
-        >
-          Next
-          <Icon as={HiArrowRight} />
-        </Button>
-      </FormCard>
+          <Button
+            size="lg"
+            bg="#82756840"
+            color="primary.contrast"
+            fontWeight="medium"
+            fontSize="md"
+            borderRadius="xl"
+            mt={2}
+            _hover={{ opacity: 0.9 }}
+            type="submit"
+            disabled={!selectedValidator[0]}
+            justifyContent={"space-between"}
+            w="full"
+          >
+            Next
+            <Icon as={HiArrowRight} />
+          </Button>
+        </FormCard>
       </form>
     </motion.div>
   );

@@ -5,8 +5,8 @@ import { MarketOverviewBoard } from "./_components/MarketOverviewBoard";
 export default function Page() {
   return (
     <HStack w={"full"} height={"full"} gap={"4"} p={"4"}>
-      <MarketOverviewBoard />
-      {/* <ValidatorList /> */}
+      {/* <MarketOverviewBoard /> */}
+      <ValidatorList />
     </HStack>
   );
 }

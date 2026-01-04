@@ -7,15 +7,25 @@ import {
   Heading,
   HStack,
   Image,
+  Input,
   StackProps,
   Text,
   VStack,
 } from "@chakra-ui/react";
 import { useClickRef } from "@make-software/csprclick-ui";
-import { useGetPosition, useGetVaultParams } from "@/app/hooks/useStayerVault";
+import { useGetPosition, useGetVaultParams, useDeposit } from "@/app/hooks/useStayerVault";
 import { useGetPrice } from "@/app/hooks/usePriceOracle";
-import { useMemo } from "react";
+import { useBalanceOf as useYSCSPRBalance } from "@/app/hooks/useYSCSPR";
+import { useMemo, useState } from "react";
 import BigNumber from "bignumber.js";
+import {
+  DialogRoot,
+  DialogContent,
+  DialogCloseTrigger,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { toaster } from "@/components/ui/toaster";
+import { Field } from "@/components/ui/field";
 
 const MOTE_RATE = new BigNumber(1_000_000_000);
 
@@ -63,14 +73,66 @@ export function PositionCard(props: Props) {
     
     if (debtBN.isZero()) return 1;
     
-    // Health Factor = (collateral * price * liq_threshold) / debt
     const hf = collateralBN.multipliedBy(priceBN).multipliedBy(liqThresholdBN).dividedBy(debtBN);
     
     return hf.toNumber();
   }, [position, vaultParams, cspr_price]);
 
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [depositAmount, setDepositAmount] = useState("");
+
+  const { data: yscspr_balance } = useYSCSPRBalance(
+    clickRef?.currentAccount?.public_key || "",
+    { options: { enabled: !!clickRef?.currentAccount } }
+  );
+
+  const depositMutation = useDeposit({
+    options: {
+      onSuccess: (hash) => {
+        toaster.create({
+          title: "Deposit Successful",
+          description: `Transaction hash: ${hash}`,
+          type: "success",
+        });
+        setIsDialogOpen(false);
+        setDepositAmount("");
+      },
+      onError: (error) => {
+        toaster.create({
+          title: "Deposit Failed",
+          description: error.message,
+          type: "error",
+        });
+      },
+    },
+  });
+
   const handleAddCollateral = () => {
-    // Implement the logic to add collateral here
+    setIsDialogOpen(true);
+  };
+
+  const handleMaxClick = () => {
+    if (yscspr_balance) {
+      setDepositAmount(new BigNumber(yscspr_balance).dividedBy(MOTE_RATE).toString());
+    }
+  };
+
+  const handleDeposit = () => {
+    if (!depositAmount || Number(depositAmount) <= 0) {
+      toaster.create({
+        title: "Invalid Amount",
+        description: "Please enter a valid amount",
+        type: "error",
+      });
+      return;
+    }
+
+    const amountInMotes = new BigNumber(depositAmount).multipliedBy(MOTE_RATE).toString();
+
+    depositMutation.mutate({
+      amount: amountInMotes,
+      waitForConfirmation: false,
+    });
   };
 
   return (
@@ -105,6 +167,45 @@ export function PositionCard(props: Props) {
       <Button size="md" onClick={handleAddCollateral}>
         Add Collateral
       </Button>
+
+      <DialogRoot open={isDialogOpen} onOpenChange={(e) => setIsDialogOpen(e.open)}>
+        <DialogContent>
+          <VStack gap={4} p={2}>
+            <Heading size="xl">Add Collateral</Heading>
+            <Field label="Amount (ySCSPR)">
+              <Input
+                placeholder="0.00"
+                value={depositAmount}
+                onChange={(e) => setDepositAmount(e.target.value)}
+                type="number"
+                min="0"
+                step="any"
+              />
+            </Field>
+            <HStack w="full" justify="space-between">
+              <Text fontSize="sm" color="fg.muted">
+                Available: {new BigNumber(yscspr_balance || 0).dividedBy(MOTE_RATE).toFixed(4)} ySCSPR
+              </Text>
+              <Button size="xs" variant="ghost" onClick={handleMaxClick}>
+                MAX
+              </Button>
+            </HStack>
+          </VStack>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleDeposit}
+              loading={depositMutation.isPending}
+              disabled={!depositAmount || Number(depositAmount) <= 0}
+            >
+              Deposit
+            </Button>
+          </DialogFooter>
+          <DialogCloseTrigger />
+        </DialogContent>
+      </DialogRoot>
     </VStack>
   );
 }

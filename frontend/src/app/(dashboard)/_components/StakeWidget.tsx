@@ -1,20 +1,38 @@
 "use client";
 
 import { Tabs, TabsRootProps } from "@chakra-ui/react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { ChooseValidatorForm } from "./ChooseValidatorForm";
 import { StakeForm } from "./StakeForm";
 import { UnstakeForm } from "./UnstakeForm";
-import { motion, AnimatePresence } from "framer-motion";
+import { AnimatePresence } from "framer-motion";
 
 type Props = TabsRootProps;
 
+export interface SelectedValidator {
+  publicKey: string;
+  formattedAddress: string;
+  totalStake: string;
+  fee: number;
+  logo?: string;
+}
+
 export function StakeTabs(props: Props) {
+  const searchParams = useSearchParams();
   const [stakeStep, setStakeStep] = useState<1 | 2>(1);
-  const [selectedValidator, setSelectedValidator] = useState("");
+  const [selectedValidator, setSelectedValidator] = useState<SelectedValidator | null>(null);
   const [currentTab, setCurrentTab] = useState("stake");
 
-  const handleValidatorNext = (validator: string) => {
+  // Check for prefilled validator from URL params on mount
+  useEffect(() => {
+    const validatorParam = searchParams.get("validator");
+    if (validatorParam) {
+      setStakeStep(2);
+    }
+  }, [searchParams]);
+
+  const handleValidatorNext = (validator: SelectedValidator) => {
     setSelectedValidator(validator);
     setStakeStep(2);
   };
@@ -53,18 +71,18 @@ export function StakeTabs(props: Props) {
           <AnimatePresence mode="wait">
             {stakeStep === 1 ? (
               <ChooseValidatorForm onNext={handleValidatorNext} key="choose-validator-stake" />
-            ) : (
+            ) : selectedValidator ? (
               <StakeForm validator={selectedValidator} onBack={handleBack} key="stake-form" />
-            )}
+            ) : null}
           </AnimatePresence>
         </Tabs.Content>
         <Tabs.Content value="unstake" key="unstake-content">
           <AnimatePresence mode="wait">
             {stakeStep === 1 ? (
               <ChooseValidatorForm onNext={handleValidatorNext} key="choose-validator-unstake" />
-            ) : (
+            ) : selectedValidator ? (
               <UnstakeForm validator={selectedValidator} onBack={handleBack} key="unstake-form" />
-            )}
+            ) : null}
           </AnimatePresence>
         </Tabs.Content>
       </AnimatePresence>

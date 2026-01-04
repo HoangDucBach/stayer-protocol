@@ -30,7 +30,11 @@ export function formatCurrency(
   decimals: number = 2
 ): string {
   const value = new BigNumber(amount);
-  return numbro(value.toNumber()).formatCurrency({ mantissa: decimals });
+  return numbro(value.toNumber()).formatCurrency({
+    mantissa: decimals,
+    thousandSeparated: true,
+    average: true
+  });
 }
 
 export function formatToken(

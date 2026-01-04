@@ -23,9 +23,11 @@ import BigNumber from "bignumber.js";
 import { motion } from "framer-motion";
 import { toaster } from "@/components/ui/toaster";
 import { Field } from "@/components/ui/field";
+import { Avatar } from "@/components/ui/avatar";
+import { SelectedValidator } from "./StakeWidget";
 
 type Props = {
-  validator: string;
+  validator: SelectedValidator;
   onBack?: () => void;
 };
 
@@ -52,19 +54,13 @@ export function UnstakeForm({ validator, onBack }: Props) {
 
   const amount = watch("amount");
 
-  // Fetch ySCSPR balance
   const { data: yscspr_balance } = useBalanceOf(
     clickRef?.currentAccount?.public_key || "",
     { options: { enabled: !!clickRef?.currentAccount } }
   );
-
-  // Fetch current era
   const { data: currentEra } = useGetCurrentEra();
-
-  // Fetch exchange rate
   const { data: exchangeRate } = useGetExchangeRate();
 
-  // Unstake mutation
   const unstakeMutation = useUnstake({
     options: {
       onSuccess: (hash) => {
@@ -86,26 +82,24 @@ export function UnstakeForm({ validator, onBack }: Props) {
 
   const balance = useMemo(() => {
     if (!yscspr_balance) return "0";
+    
     return new BigNumber(yscspr_balance)
       .dividedBy(MOTE_RATE)
       .toFixed(2);
   }, [yscspr_balance]);
   const unbondingTime = "14 hours";
 
-  // Calculate receive CSPR amount using exchange rate
   const receiveAmount = useMemo(() => {
     if (!amount || isNaN(Number(amount)) || !exchangeRate) return "0";
     
     const amountBN = new BigNumber(amount);
     const exchangeRateBN = new BigNumber(exchangeRate).dividedBy(MOTE_RATE);
     
-    // CSPR = ySCSPR * exchange_rate
     const cspr = amountBN.multipliedBy(exchangeRateBN);
     
     return cspr.toFixed(2);
   }, [amount, exchangeRate]);
 
-  // Validation
   const isValidAmount = useMemo(() => {
     if (!amount || amount === "0") return false;
     const amountBN = new BigNumber(amount);
@@ -127,13 +121,9 @@ export function UnstakeForm({ validator, onBack }: Props) {
       return;
     }
 
-    const amountInMotes = new BigNumber(data.amount)
-      .multipliedBy(MOTE_RATE)
-      .toFixed(0);
-
     unstakeMutation.mutate({
-      validatorPublicKey: validator,
-      yscspr_amount: amountInMotes,
+      validatorPublicKey: validator.publicKey,
+      yscspr_amount: amount,
       currentEra,
       waitForConfirmation: false,
     });
@@ -213,11 +203,9 @@ export function UnstakeForm({ validator, onBack }: Props) {
             <Text fontSize="sm" color="fg">
               {receiveAmount}
             </Text>
-            <Image
+            <Avatar
               src="/assets/yscspr-token-icon.svg"
-              alt="CSPR Token Icon"
-              w={4}
-              h={4}
+              size="2xs"
             />
           </HStack>
         }
@@ -228,14 +216,15 @@ export function UnstakeForm({ validator, onBack }: Props) {
         leftText="Validator"
         rightNode={
           <HStack gap={2}>
-            <Image
-              src="/assets/yscspr-token-icon.svg"
-              alt="Validator Icon"
-              w={4}
-              h={4}
+            <Avatar
+              src={
+                validator.logo ||
+                `https://api.dicebear.com/7.x/identicon/svg?seed=${validator.publicKey}`
+              }
+              size="2xs"
             />
             <Text fontSize="sm" color="fg" textDecoration="underline">
-              {formatAddress(validator)}
+              {validator.formattedAddress}
             </Text>
           </HStack>
         }

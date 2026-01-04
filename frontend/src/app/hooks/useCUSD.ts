@@ -11,12 +11,16 @@ import {
   Args,
   CLValue,
   PublicKey,
-  ContractCallBuilder,
   TransactionWrapper,
 } from "casper-js-sdk";
 import { CUSD_CONTRACT, CASPER_CHAIN_NAME } from "@/configs/constants";
 import { waitForDeployOrTransaction } from "@/libs/casper";
 import { apiClient } from "@/libs/api";
+import {
+  buildOdraProxyTransaction,
+  buildTransferInnerArgs,
+  buildApproveInnerArgs,
+} from "@/libs/odra-proxy";
 import type { TransferPayload, ApprovePayload } from "@/types/core";
 
 type HooksOptions<TData = unknown, TError = Error, TVariables = void> = {
@@ -56,22 +60,16 @@ export function useTransfer({
 
       const senderPublicKey = PublicKey.fromHex(activeAccount.public_key);
 
-      const args = Args.fromMap({
-        recipient: CLValue.newCLByteArray(Buffer.from(recipient, "hex")),
-        amount: CLValue.newCLUInt256(amount),
+      const innerArgs = buildTransferInnerArgs(recipient, amount);
+
+      const transactionJson = await buildOdraProxyTransaction({
+        senderPublicKey,
+        packageHash: CUSD_CONTRACT,
+        entryPoint: "transfer",
+        innerArgs,
+        attachedValue: "0",
+        paymentAmount: 3_000_000_000,
       });
-
-      const transaction = new ContractCallBuilder()
-        .from(senderPublicKey)
-        .byHash(CUSD_CONTRACT)
-        .entryPoint("transfer")
-        .runtimeArgs(args)
-        .chainName(CASPER_CHAIN_NAME)
-        .payment(3_000_000_000)
-        .build();
-
-      const wrapper = transaction.getTransactionWrapper();
-      const transactionJson = TransactionWrapper.toJSON(wrapper) as object;
 
       const result = await clickRef.send(transactionJson, activeAccount.public_key);
       if (!result) throw new Error("Transaction failed");
@@ -111,22 +109,16 @@ export function useApprove({
 
       const senderPublicKey = PublicKey.fromHex(activeAccount.public_key);
 
-      const args = Args.fromMap({
-        spender: CLValue.newCLByteArray(Buffer.from(spender, "hex")),
-        amount: CLValue.newCLUInt256(amount),
+      const innerArgs = buildApproveInnerArgs(spender, amount);
+
+      const transactionJson = await buildOdraProxyTransaction({
+        senderPublicKey,
+        packageHash: CUSD_CONTRACT,
+        entryPoint: "approve",
+        innerArgs,
+        attachedValue: "0",
+        paymentAmount: 3_000_000_000,
       });
-
-      const transaction = new ContractCallBuilder()
-        .from(senderPublicKey)
-        .byHash(CUSD_CONTRACT)
-        .entryPoint("approve")
-        .runtimeArgs(args)
-        .chainName(CASPER_CHAIN_NAME)
-        .payment(3_000_000_000)
-        .build();
-
-      const wrapper = transaction.getTransactionWrapper();
-      const transactionJson = TransactionWrapper.toJSON(wrapper) as object;
 
       const result = await clickRef.send(transactionJson, activeAccount.public_key);
       if (!result) throw new Error("Transaction failed");

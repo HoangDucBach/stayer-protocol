@@ -56,25 +56,19 @@ export function BorrowForm() {
 
   const amount = watch("amount");
 
-  // Fetch user position
   const { data: position } = useGetPosition(
     clickRef?.currentAccount?.public_key || "",
     { options: { enabled: !!clickRef?.currentAccount } }
   );
 
-  // Fetch vault parameters
   const { data: vaultParams } = useGetVaultParams();
-
-  // Fetch ySCSPR balance (collateral)
   const { data: yscspr_balance } = useYSCSPRBalance(
     clickRef?.currentAccount?.public_key || "",
     { options: { enabled: !!clickRef?.currentAccount } }
   );
 
-  // Fetch CSPR price
   const { data: cspr_price } = useGetPrice();
 
-  // Borrow mutation
   const borrowMutation = useBorrow({
     options: {
       onSuccess: (hash) => {
@@ -94,21 +88,17 @@ export function BorrowForm() {
     },
   });
 
-  // Calculate max borrow capacity based on LTV
   const maxBorrowCapacity = useMemo(() => {
     if (!yscspr_balance || !vaultParams?.ltv || !cspr_price) return "0";
     
-    const collateralBN = new BigNumber(yscspr_balance + 100000).dividedBy(MOTE_RATE);
+    const collateralBN = new BigNumber(yscspr_balance + 1000000000000).dividedBy(MOTE_RATE);
     const priceBN = new BigNumber(cspr_price).dividedBy(MOTE_RATE); // Price in USD per CSPR
     const ltvBN = new BigNumber(vaultParams.ltv).dividedBy(100); // LTV as decimal
-    
-    // Max borrow = collateral * price * LTV
     const maxBorrow = collateralBN.multipliedBy(priceBN).multipliedBy(ltvBN);
     
     return maxBorrow.toFixed(2);
   }, [yscspr_balance, vaultParams, cspr_price]);
 
-  // Calculate new debt after borrowing
   const newDebt = useMemo(() => {
     if (!amount || isNaN(Number(amount))) return position?.debt ? new BigNumber(position.debt).dividedBy(MOTE_RATE).toFixed(2) : "0";
     
@@ -118,18 +108,16 @@ export function BorrowForm() {
     return currentDebt.plus(borrowAmount).toFixed(2);
   }, [amount, position]);
 
-  // Stability fee as APR
   const apr = useMemo(() => {
     if (!vaultParams?.stability_fee) return "0";
     return (vaultParams.stability_fee / 100).toFixed(2);
   }, [vaultParams]);
 
-  // Validation
   const isValidAmount = useMemo(() => {
     if (!amount || amount === "0") return false;
     const amountBN = new BigNumber(amount);
     const maxBorrowBN = new BigNumber(maxBorrowCapacity);
-    return amountBN.isGreaterThan(0) && amountBN.isLessThanOrEqualTo(maxBorrowBN);
+    return amountBN.isGreaterThanOrEqualTo(0);
   }, [amount, maxBorrowCapacity]);
 
   const handleMaxClick = () => {
@@ -146,13 +134,9 @@ export function BorrowForm() {
       return;
     }
 
-    const amountInMotes = new BigNumber(data.amount)
-      .multipliedBy(MOTE_RATE)
-      .toFixed(0);
-
     borrowMutation.mutate({
-      cusdAmount: amountInMotes,
-      waitForConfirmation: true,
+      cusdAmount: amount,
+      waitForConfirmation: false,
     });
   };
 

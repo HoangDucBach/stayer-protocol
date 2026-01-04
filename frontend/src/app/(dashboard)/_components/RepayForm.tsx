@@ -148,13 +148,9 @@ export function RepayForm() {
       return;
     }
 
-    const amountInMotes = new BigNumber(data.amount)
-      .multipliedBy(MOTE_RATE)
-      .toFixed(0);
-
     repayMutation.mutate({
-      cusdAmount: amountInMotes,
-      waitForConfirmation: true,
+      cusdAmount: amount,
+      waitForConfirmation: false,
     });
   };
 

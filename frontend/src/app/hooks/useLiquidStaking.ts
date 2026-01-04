@@ -11,7 +11,6 @@ import {
   Args,
   CLValue,
   PublicKey,
-  ContractCallBuilder,
   TransactionWrapper,
 } from "casper-js-sdk";
 import {
@@ -23,6 +22,8 @@ import { apiClient } from "@/libs/api";
 import {
   buildOdraProxyTransaction,
   buildStakeInnerArgs,
+  buildUnstakeInnerArgs,
+  buildClaimInnerArgs,
 } from "@/libs/odra-proxy";
 import type {
   StakePayload,
@@ -135,25 +136,16 @@ export function useUnstake({
 
       const senderPublicKey = PublicKey.fromHex(activeAccount.public_key);
 
-      const args = Args.fromMap({
-        validator_pubkey: CLValue.newCLPublicKey(
-          PublicKey.fromHex(validatorPublicKey)
-        ),
-        yscspr_amount: CLValue.newCLUInt256(yscspr_amount),
-        current_era: CLValue.newCLUint64(currentEra),
+      const innerArgs = buildUnstakeInnerArgs(validatorPublicKey, yscspr_amount, currentEra);
+
+      const transactionJson = await buildOdraProxyTransaction({
+        senderPublicKey,
+        packageHash: LIQUID_STAKING_CONTRACT,
+        entryPoint: "unstake",
+        innerArgs,
+        attachedValue: "0",
+        paymentAmount: DEFAULT_PAYMENT_GAS,
       });
-
-      const transaction = new ContractCallBuilder()
-        .from(senderPublicKey)
-        .byHash(LIQUID_STAKING_CONTRACT)
-        .entryPoint("unstake")
-        .runtimeArgs(args)
-        .chainName(CASPER_CHAIN_NAME)
-        .payment(DEFAULT_PAYMENT_GAS)
-        .build();
-
-      const wrapper = transaction.getTransactionWrapper();
-      const transactionJson = TransactionWrapper.toJSON(wrapper) as object;
 
       const result = await clickRef.send(
         transactionJson,
@@ -193,21 +185,16 @@ export function useClaim({
 
       const senderPublicKey = PublicKey.fromHex(activeAccount.public_key);
 
-      const args = Args.fromMap({
-        current_era: CLValue.newCLUint64(currentEra),
+      const innerArgs = buildClaimInnerArgs(currentEra);
+
+      const transactionJson = await buildOdraProxyTransaction({
+        senderPublicKey,
+        packageHash: LIQUID_STAKING_CONTRACT,
+        entryPoint: "claim",
+        innerArgs,
+        attachedValue: "0",
+        paymentAmount: DEFAULT_PAYMENT_GAS,
       });
-
-      const transaction = new ContractCallBuilder()
-        .from(senderPublicKey)
-        .byHash(LIQUID_STAKING_CONTRACT)
-        .entryPoint("claim")
-        .runtimeArgs(args)
-        .chainName(CASPER_CHAIN_NAME)
-        .payment(DEFAULT_PAYMENT_GAS)
-        .build();
-
-      const wrapper = transaction.getTransactionWrapper();
-      const transactionJson = TransactionWrapper.toJSON(wrapper) as object;
 
       const result = await clickRef.send(
         transactionJson,

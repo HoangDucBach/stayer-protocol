@@ -154,3 +154,60 @@ export function buildClaimInnerArgs(currentEra: number): Args {
 export function buildDepositInnerArgs(): Args {
   return Args.fromMap({});
 }
+
+/**
+ * Build inner args for borrow function
+ */
+export function buildBorrowInnerArgs(cusdAmount: string): Args {
+  return Args.fromMap({
+    cusd_amount: CLValue.newCLUInt256(cusdAmount),
+  });
+}
+
+/**
+ * Build inner args for repay function
+ */
+export function buildRepayInnerArgs(cusdAmount: string): Args {
+  return Args.fromMap({
+    cusd_amount: CLValue.newCLUInt256(cusdAmount),
+  });
+}
+
+/**
+ * Build inner args for withdraw function
+ */
+export function buildWithdrawInnerArgs(yscsprAmount: string): Args {
+  return Args.fromMap({
+    yscspr_amount: CLValue.newCLUInt256(yscsprAmount),
+  });
+}
+
+/**
+ * Build inner args for liquidate function
+ */
+export function buildLiquidateInnerArgs(userAddress: string, debtToCover: string): Args {
+  return Args.fromMap({
+    user: CLValue.newCLByteArray(Buffer.from(userAddress, "hex")),
+    debt_to_cover: CLValue.newCLUInt256(debtToCover),
+  });
+}
+
+/**
+ * Build inner args for transfer function (ERC20-like)
+ */
+export function buildTransferInnerArgs(recipient: string, amount: string): Args {
+  return Args.fromMap({
+    recipient: CLValue.newCLByteArray(Buffer.from(recipient, "hex")),
+    amount: CLValue.newCLUInt256(amount),
+  });
+}
+
+/**
+ * Build inner args for approve function (ERC20-like)
+ */
+export function buildApproveInnerArgs(spender: string, amount: string): Args {
+  return Args.fromMap({
+    spender: CLValue.newCLByteArray(Buffer.from(spender, "hex")),
+    amount: CLValue.newCLUInt256(amount),
+  });
+}
