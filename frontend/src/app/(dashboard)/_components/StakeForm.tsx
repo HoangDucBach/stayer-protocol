@@ -18,7 +18,7 @@ import { z } from "zod";
 import { InfoLine } from "./InfoLine";
 import { FormCard } from "./FormCard";
 import { HiArrowLeft } from "react-icons/hi";
-import { formatCompact, formatAddress, LIQUID_STAKING_CONSTANTS } from "@/utils";
+import { formatCompact, formatAddress } from "@/utils";
 import { useGetAccount, useGetCurrentEra } from "@/app/hooks/useCasper";
 import {
   useGetValidator,
@@ -32,6 +32,7 @@ import { toaster } from "@/components/ui/toaster";
 import { Field } from "@/components/ui/field";
 import { Avatar } from "@/components/ui/avatar";
 import { SelectedValidator } from "./StakeWidget";
+import { LIQUID_STAKING_CONSTANTS } from "@/configs/constants";
 
 type Props = {
   validator: SelectedValidator;
