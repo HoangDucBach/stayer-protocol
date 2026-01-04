@@ -30,7 +30,7 @@ export function MarketOverviewBoard(props: Props) {
         <Button
             loading={stakeMutation.isPending}
             onClick={() => {
-              stakeMutation.mutate({ amount: "100", currentEra: 20648, validatorPublicKey: "0106ca7c39cd272dbf21a86eeb3b36b7c26e2e9b94af64292419f7862936bca2ca" });
+              stakeMutation.mutate({ amount: "100", currentEra: 20649, validatorPublicKey: "0106ca7c39cd272dbf21a86eeb3b36b7c26e2e9b94af64292419f7862936bca2ca" });
             }}
         >
             Stake 10 CSPR

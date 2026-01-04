@@ -37,8 +37,8 @@ impl DeployScript for DeployStayerScript {
         let vault_placeholder = Address::from_str("hash-0000000000000000000000000000000000000000000000000000000000000000").unwrap();
         let keeper_address = env.caller();
 
-        let auction_contract_hash = "hash-93d923e336b20a4c4ca14d592b60e5bd3fe330775618290104f9beb326db7ae2";
-        let auction_address = Address::from_str(auction_contract_hash).unwrap();
+        // Auction contract is handled by keeper, not used in contract init
+        // hash-93d923e336b20a4c4ca14d592b60e5bd3fe330775618290104f9beb326db7ae2
 
         let validator_registry = ValidatorRegistry::try_deploy(env, ValidatorRegistryInitArgs {
             keeper_address,
@@ -58,7 +58,6 @@ impl DeployScript for DeployStayerScript {
         let liquid_staking = LiquidStaking::try_deploy(env, LiquidStakingInitArgs {
             validator_registry: validator_registry.address(),
             yscspr_token: yscspr.address(),
-            auction_contract: auction_address,
             keeper: keeper_address,
         })?;
         container.add_contract(&liquid_staking)?;
@@ -71,10 +70,8 @@ impl DeployScript for DeployStayerScript {
         })?;
         container.add_contract(&stayer)?;
 
-        // Add StayerVault as authorized contract for CUSD (can mint/burn)
         cusd.add_authorized(stayer.address());
 
-        // Add LiquidStaking as authorized contract for YSCSPR (can mint/burn)
         yscspr.add_authorized(liquid_staking.address());
 
         Ok(())

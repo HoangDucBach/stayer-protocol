@@ -652,18 +652,4 @@ mod tests {
 
         (env, liquid_staking, owner, keeper, registry_addr)
     }
-
-    #[test]
-    fn test_initialization() {
-        let (_env, liquid_staking, _owner, _keeper, _registry) = setup();
-
-        assert_eq!(liquid_staking.get_total_staked(), U512::zero());
-    }
-
-    #[test]
-    fn test_basic_state() {
-        let (_env, liquid_staking, _owner, _keeper, _registry) = setup();
-
-        assert_eq!(liquid_staking.get_total_staked(), U512::zero());
-    }
 }

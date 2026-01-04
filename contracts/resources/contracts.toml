@@ -1,25 +1,25 @@
-last_updated = "2025-12-28T09:19:05Z"
+last_updated = "2026-01-04T16:39:03Z"
 
 [[contracts]]
 name = "PriceOracle"
-package_hash = "hash-3afd2f0f52a2b8de66c44b6ba97e6f056b5d9862fbb8736e647555ca242e74f9"
+package_hash = "hash-dc31c91eb6686d9133ac9074f5e345c177ecdc0f2466e037e4c511113a963cc4"
 
 [[contracts]]
 name = "ValidatorRegistry"
-package_hash = "hash-976b6dc755f25fc6d2052e9a00d95c0a84516185a9ebad52a9df38482c09dee3"
+package_hash = "hash-f625876594941b55714c4c3126dc57ff2a0dd7bdd4fbb41b5b97c77e8392d369"
 
 [[contracts]]
 name = "CUSD"
-package_hash = "hash-eb59671387ed97325728ac586477899db2f43c1cffd963b7937e696f2389a3a1"
+package_hash = "hash-e90070936a15a66b00c95cc55dbb5b979ac41fa16425db23c2a3a42d1e26082e"
 
 [[contracts]]
 name = "YSCSPR"
-package_hash = "hash-c381d0f5faff2d59badd6606fd696691c3fcccc0700ce897336461171eec92e6"
+package_hash = "hash-6338e429a9f8bc8676d39251d81b990394dcc0014c738d68a7137e2a46808657"
 
 [[contracts]]
 name = "LiquidStaking"
-package_hash = "hash-4470231de5e030712f19811893339988fcc51f1bd8a3a10c6732dd5481c0fef5"
+package_hash = "hash-071c659d24f91a87a3a92ab40394fa46c9c969ec93dbd780848f814198272ab3"
 
 [[contracts]]
 name = "StayerVault"
-package_hash = "hash-ccfa385e56c514710643f171154eab09512a4650de5ee52c90af09d3ef40dddb"
+package_hash = "hash-e51fab33128dfd91f39711cb71021419c32d9782083dd5c888757824c064b44c"

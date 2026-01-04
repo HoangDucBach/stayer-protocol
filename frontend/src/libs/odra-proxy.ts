@@ -7,13 +7,11 @@
 
 import {
   Args,
-  CLValue,
   CLTypeUInt8,
+  CLValue,
   PublicKey,
   SessionBuilder,
   TransactionWrapper,
-  Key,
-  ContractPackageHash,
 } from "casper-js-sdk";
 import { CASPER_CHAIN_NAME } from "@/configs/constants";
 
@@ -41,7 +39,7 @@ async function loadProxyWasm(): Promise<Uint8Array> {
 }
 
 /**
- * Serialize Args to CLList<CLU8> format required by Odra proxy
+ * Serialize Args to Bytes format required by Odra proxy
  */
 function serializeArgsToList(args: Args): CLValue {
   const argsBytes = args.toBytes();
@@ -81,12 +79,19 @@ export async function buildOdraProxyTransaction({
   // Load WASM
   const wasmBytes = await loadProxyWasm();
 
-  // Serialize inner args to CLList<CLU8>
+  // Serialize inner args to Bytes format
   const serializedArgs = serializeArgsToList(innerArgs);
 
-  // Build proxy args
+  // Ensure package hash has proper format (without 'hash-' prefix for byte array)
+  const packageHashWithoutPrefix = packageHash.startsWith("hash-")
+    ? packageHash.slice(5)
+    : packageHash;
+
+  const packageHashBytes = Buffer.from(packageHashWithoutPrefix, "hex");
+
+  // Build proxy args according to Odra spec
   const proxyArgs = Args.fromMap({
-    package_hash: CLValue.newCLByteArray(ContractPackageHash.newContractPackage(packageHash).hash.toBytes()),
+    package_hash: CLValue.newCLByteArray(packageHashBytes),
     entry_point: CLValue.newCLString(entryPoint),
     args: serializedArgs,
     attached_value: CLValue.newCLUInt512(attachedValue),
