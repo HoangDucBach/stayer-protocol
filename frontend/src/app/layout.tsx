@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Rubik } from "next/font/google";
 import siteConfig from "@/configs/site";
 
@@ -9,9 +9,63 @@ const rubik = Rubik({
   subsets: ["latin"],
 });
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: "#000000",
+};
+
 export const metadata: Metadata = {
-  title: siteConfig.app.name,
+  metadataBase: new URL(siteConfig.app.url),
+  title: {
+    default: siteConfig.app.name,
+    template: `%s | ${siteConfig.app.name}`,
+  },
   description: siteConfig.app.description,
+  keywords: siteConfig.keywords,
+  authors: [{ name: "Stayer Protocol Team" }],
+  creator: "Stayer Protocol",
+  publisher: "Stayer Protocol",
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    url: siteConfig.app.url,
+    siteName: siteConfig.app.name,
+    title: siteConfig.app.name,
+    description: siteConfig.app.description,
+    images: [
+      {
+        url: siteConfig.app.ogImage,
+        width: 1200,
+        height: 630,
+        alt: siteConfig.app.name,
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: siteConfig.app.name,
+    description: siteConfig.app.description,
+    images: [siteConfig.app.ogImage],
+    creator: siteConfig.app.twitterHandle,
+  },
+  icons: {
+    icon: "/favicon.ico",
+    shortcut: "/favicon-16x16.png",
+    apple: "/apple-touch-icon.png",
+  },
+  manifest: "/site.webmanifest",
 };
 
 export default function RootLayout({

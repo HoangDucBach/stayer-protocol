@@ -1,7 +1,21 @@
-import { Center, Flex } from "@chakra-ui/react";
+import type { Metadata } from "next";
+import { Flex } from "@chakra-ui/react";
 import { BorrowPanel } from "./_components/BorrowPanel";
 import { LeftPanel } from "./_components/LeftPanel";
-import { ProtectedContent } from "@/app/_components/ProtectedContent";
+import siteConfig from "@/configs/site";
+
+export const metadata: Metadata = {
+  title: "Borrow cUSD",
+  description: siteConfig.pages.lending.description,
+  openGraph: {
+    title: siteConfig.pages.lending.title,
+    description: siteConfig.pages.lending.description,
+  },
+  twitter: {
+    title: siteConfig.pages.lending.title,
+    description: siteConfig.pages.lending.description,
+  },
+};
 
 export default function Home() {
   return (

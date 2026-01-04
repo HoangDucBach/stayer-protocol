@@ -1,6 +1,20 @@
-import { Center, Flex } from "@chakra-ui/react";
+import type { Metadata } from "next";
+import { Flex } from "@chakra-ui/react";
 import { MainPanel } from "./_components/MainPanel";
-import { ProtectedContent } from "@/app/_components/ProtectedContent";
+import siteConfig from "@/configs/site";
+
+export const metadata: Metadata = {
+  title: "Stake CSPR",
+  description: siteConfig.pages.staking.description,
+  openGraph: {
+    title: siteConfig.pages.staking.title,
+    description: siteConfig.pages.staking.description,
+  },
+  twitter: {
+    title: siteConfig.pages.staking.title,
+    description: siteConfig.pages.staking.description,
+  },
+};
 
 export default function Home() {
   return (

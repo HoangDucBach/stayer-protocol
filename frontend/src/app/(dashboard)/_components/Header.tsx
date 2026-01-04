@@ -18,6 +18,7 @@ import {
   MenuRootProps,
 } from "@chakra-ui/react";
 import dynamic from "next/dynamic";
+import NextLink from "next/link";
 import { useRouter } from "next/navigation";
 import { HiMenu } from "react-icons/hi";
 
@@ -43,9 +44,9 @@ export function Header(props: HeaderProps) {
       }}
     >
       {/* Logo */}
-      <Box>
+      <NextLink href="/dashboard">
         <Image src="/assets/favicon.svg" alt="Logo" h={10} />
-      </Box>
+      </NextLink>
 
       {/* Menu Button */}
       <OpenMenu />

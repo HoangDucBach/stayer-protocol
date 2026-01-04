@@ -28,7 +28,13 @@ export function HeroSection({ children, ...rest }: Props) {
             src="/assets/stayer-primary-poster.png"
           />
         </Center>
-        <VStack w={"full"} align={"start"} justify={"center"} flex={1}>
+        <VStack
+          w={"full"}
+          h={"full"}
+          align={"start"}
+          justify={"space-between"}
+          flex={1}
+        >
           <Header />
           <VStack align={"start"} gap={"4"} justify={"center"} flexGrow={1}>
             <Heading as="h1" size="6xl" fontWeight={"bold"}>
@@ -41,18 +47,23 @@ export function HeroSection({ children, ...rest }: Props) {
             </Text>
             <LinkButton href="/dashboard">Explore</LinkButton>
           </VStack>
-          <HStack w={"full"} align={"center"} gap={"8"}>
+          <Stack
+            w={"full"}
+            align={"center"}
+            gap={"8"}
+            direction={["column", "column", "row"]}
+          >
             <Logo
               size={"lg"}
               nameProps={{
                 fontWeight: "bold",
-                fontSize: ["5xl", "6xl"],
+                fontSize: ["2xl", "3xl", "5xl", "6xl"],
               }}
             />
             <Heading as="h6" size="sm" fontWeight={"normal"}>
               Liquid Staking Protocol & <br /> Stablecoin
             </Heading>
-          </HStack>
+          </Stack>
         </VStack>
       </HStack>
     </chakra.section>

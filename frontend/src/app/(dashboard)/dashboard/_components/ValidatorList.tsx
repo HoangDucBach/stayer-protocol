@@ -4,6 +4,7 @@ import { useGetValidator as useGetValidatorRegistry } from "@/app/hooks/useValid
 import {
   Button,
   For,
+  Heading,
   HStack,
   Icon,
   Link,

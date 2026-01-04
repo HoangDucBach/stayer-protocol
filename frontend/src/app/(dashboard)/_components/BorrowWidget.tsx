@@ -2,7 +2,6 @@
 
 import { Tabs, TabsRootProps } from "@chakra-ui/react";
 import { useState } from "react";
-import { ChooseValidatorForm } from "../../staking/_components/ChooseValidatorForm";
 import { StakeForm } from "./StakeForm";
 import { UnstakeForm } from "./UnstakeForm";
 import { BorrowForm } from "./BorrowForm";

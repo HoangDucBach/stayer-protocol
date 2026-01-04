@@ -63,7 +63,7 @@ export function WalletConnect(props: Props) {
   }
 
   const publicKey = account.public_key || "";
-  const accountName = account.name || "Unnamed Account";
+  const accountName = account.name || formatAddress(publicKey);
 
   return (
     <MenuRoot >

@@ -1,7 +1,21 @@
-import Image from "next/image";
+import type { Metadata } from "next";
 import dynamic from "next/dynamic";
-import { Stack, VStack } from "@chakra-ui/react";
+import { VStack } from "@chakra-ui/react";
 import { HeroSection } from "./_sections/HeroSection";
+import siteConfig from "@/configs/site";
+
+export const metadata: Metadata = {
+  title: siteConfig.pages.landing.title,
+  description: siteConfig.pages.landing.description,
+  openGraph: {
+    title: siteConfig.pages.landing.title,
+    description: siteConfig.pages.landing.description,
+  },
+  twitter: {
+    title: siteConfig.pages.landing.title,
+    description: siteConfig.pages.landing.description,
+  },
+};
 
 const WalletConnect = dynamic(
   () =>
