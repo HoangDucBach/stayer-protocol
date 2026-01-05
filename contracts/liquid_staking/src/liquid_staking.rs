@@ -429,7 +429,7 @@ impl LiquidStaking {
     pub fn confirm_delegation(&mut self, validator: PublicKey, amount: U512) {
         self.require_keeper();
 
-        let mut pending = self.pending_delegations.get_or_default();
+        let pending = self.pending_delegations.get_or_default();
         let mut new_pending = Vec::new();
         let mut confirmed = false;
 
