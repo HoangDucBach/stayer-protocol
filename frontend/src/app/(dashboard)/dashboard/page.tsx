@@ -20,7 +20,7 @@ export const metadata: Metadata = {
 export default function Page() {
   return (
     <HStack w={"full"} height={"full"} gap={"4"} p={"4"}>
-      {/* <MarketOverviewBoard /> */}
+      <MarketOverviewBoard />
       <ValidatorList />
     </HStack>
   );

@@ -1,7 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   /* config options here */
-  serverComponentsExternalPackages: ["casper-js-sdk"],
+  compiler: {
+    styledComponents: true,
+  },
   async rewrites() {
     return [
       {

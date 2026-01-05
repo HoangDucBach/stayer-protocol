@@ -54,16 +54,22 @@ export function ValidatorList(props: Props) {
   }
 
   return (
-    <VStack flex={1} h={"full"} overflow={"auto"} {...props}>
-      <For each={sortedPerfValidators} fallback={<div>Loading...</div>}>
-        {(validator) => (
-          <StayerValidator 
-            key={validator.public_key} 
-            validator={validator} 
-            onDelegate={handleDelegate}
-          />
-        )}
-      </For>
+    <VStack flex={1} h={"full"} {...props}>
+      <VStack w={"full"}>
+        <Heading as="h2" size="4xl" fontWeight={"bold"} w={"full"}>
+          Validators
+        </Heading>
+        <Text color={"fg.subtle"} w={"full"}>
+          Choose your favorite and delegate to earn{" "}
+        </Text>
+      </VStack>
+      <VStack w={"full"} h={"full"} overflow={"auto"}>
+        <For each={sortedPerfValidators} fallback={<div>Loading...</div>}>
+          {(validator) => (
+            <StayerValidator key={validator.public_key} validator={validator} />
+          )}
+        </For>
+      </VStack>
     </VStack>
   );
 }

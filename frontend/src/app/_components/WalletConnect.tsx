@@ -14,7 +14,13 @@ import { useClickRef } from "@make-software/csprclick-ui";
 import { useEffect, useState } from "react";
 import { HiOutlineLogout, HiOutlineClipboardCopy } from "react-icons/hi";
 
-import { MenuContent, MenuRoot, MenuTrigger, MenuItem, MenuSeparator } from "@/components/ui/menu";
+import {
+  MenuContent,
+  MenuRoot,
+  MenuTrigger,
+  MenuItem,
+  MenuSeparator,
+} from "@/components/ui/menu";
 import { formatAddress } from "@/utils";
 
 interface Props extends StackProps {}
@@ -24,20 +30,19 @@ export function WalletConnect(props: Props) {
   const [account, setAccount] = useState(clickRef?.currentAccount || null);
 
   useEffect(() => {
-    if (!clickRef) return;
-
-    const handleSignIn = () => setAccount(clickRef.currentAccount);
-    const handleSignOut = () => setAccount(null);
-
-    clickRef.on("csprclick:signed_in", handleSignIn);
-    clickRef.on("csprclick:signed_out", handleSignOut);
-
-    // Cleanup listeners on unmount
-    return () => {
-      clickRef.off("csprclick:signed_in", handleSignIn);
-      clickRef.off("csprclick:signed_out", handleSignOut);
-    };
-  }, [clickRef]);
+    clickRef?.on("csprclick:signed_in", async (evt) => {
+      await setAccount(evt.account);
+    });
+    clickRef?.on("csprclick:switched_account", async (evt) => {
+      await setAccount(evt.account);
+    });
+    clickRef?.on("csprclick:signed_out", async () => {
+      setAccount(null);
+    });
+    clickRef?.on("csprclick:disconnected", async () => {
+      setAccount(null);
+    });
+  }, [clickRef?.on]);
 
   // While Click SDK is loading
   if (!clickRef) {
@@ -66,11 +71,9 @@ export function WalletConnect(props: Props) {
   const accountName = account.name || formatAddress(publicKey);
 
   return (
-    <MenuRoot >
+    <MenuRoot>
       <MenuTrigger asChild>
-        <Button>
-          {accountName || formatAddress(publicKey)}
-        </Button>
+        <Button>{accountName || formatAddress(publicKey)}</Button>
       </MenuTrigger>
 
       <MenuContent>
