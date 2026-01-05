@@ -26,7 +26,6 @@ export function StakeWidget(props: Props) {
     useState<SelectedValidator | null>(null);
   const [currentTab, setCurrentTab] = useState("stake");
 
-  // Check for prefilled validator from URL params on mount
   useEffect(() => {
     const validatorParam = searchParams.get("validator");
     const logoParam = searchParams.get("logo");
@@ -53,7 +52,6 @@ export function StakeWidget(props: Props) {
 
   const handleTabChange = (details: { value: string }) => {
     setCurrentTab(details.value);
-    // Reset to step 1 when changing tabs
     setStakeStep(1);
   };
 

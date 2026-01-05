@@ -95,6 +95,7 @@ export function useStake({
     );
     console.log("Transaction result:", result);
     if (!result) throw new Error("Transaction failed");
+    if (result.cancelled) throw new Error("Transaction cancelled by user");
 
     const hash = result.deployHash || result.transactionHash || "";
 
@@ -152,6 +153,7 @@ export function useUnstake({
         activeAccount.public_key
       );
       if (!result) throw new Error("Transaction failed");
+      if (result.cancelled) throw new Error("Transaction cancelled by user");
 
       const hash = result.deployHash || result.transactionHash || "";
 
@@ -201,6 +203,7 @@ export function useClaim({
         activeAccount.public_key
       );
       if (!result) throw new Error("Transaction failed");
+      if (result.cancelled) throw new Error("Transaction cancelled by user");
 
       const hash = result.deployHash || result.transactionHash || "";
 
