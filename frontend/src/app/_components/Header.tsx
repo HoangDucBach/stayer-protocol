@@ -24,7 +24,7 @@ import { HiMenu } from "react-icons/hi";
 
 const WalletConnect = dynamic(
   () =>
-    import("../../_components/WalletConnect").then((mod) => ({
+    import("./WalletConnect").then((mod) => ({
       default: mod.WalletConnect,
     })),
   { ssr: false }
@@ -36,11 +36,13 @@ export function Header(props: HeaderProps) {
   return (
     <chakra.header
       {...props}
+      position="relative"
       style={{
         display: "flex",
+        alignItems: "center",
         justifyContent: "space-between",
         padding: "1rem",
-        width: "100%",
+        width: "98%",
       }}
     >
       {/* Logo */}
@@ -48,8 +50,17 @@ export function Header(props: HeaderProps) {
         <Image src="/assets/favicon.svg" alt="Logo" h={10} />
       </NextLink>
 
-      {/* Menu Button */}
-      <OpenMenu />
+      {/* Centered Menu Button */}
+      <Box
+        position="absolute"
+        left="50%"
+        top="50%"
+        transform="translate(-50%, -50%)"
+        zIndex={1}
+        display={{ base: "none", md: "block" }}
+      >
+        <OpenMenu />
+      </Box>
 
       {/* Mobile Menu */}
       <IconButton
@@ -61,7 +72,7 @@ export function Header(props: HeaderProps) {
       </IconButton>
 
       {/* Wallet Connect */}
-      <Box w="fit-content">
+      <Box w="fit-content" ml="auto">
         <WalletConnect />
       </Box>
     </chakra.header>

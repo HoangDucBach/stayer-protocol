@@ -1,7 +1,7 @@
 "use client";
 
 import { Box, BoxProps, Heading, HStack } from "@chakra-ui/react";
-import { StakeTabs } from "../../(dashboard)/_components/StakeWidget";
+import { StakeWidget } from "../../(dashboard)/_components/StakeWidget";
 
 type Props = BoxProps;
 
@@ -24,7 +24,7 @@ export function MainPanel(props: Props) {
           </Box>
         </HStack>
       </Heading>
-      <StakeTabs />
+      <StakeWidget />
     </Box>
   );
 }

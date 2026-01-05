@@ -1,12 +1,14 @@
-import { Box, HStack, Text, VStack } from "@chakra-ui/react";
+import { Box, BoxProps, HStack, Text, VStack } from "@chakra-ui/react";
 import { useGetVaultParams, useGetTotalDebt } from "@/app/hooks/useStayerVault";
 import { useMemo } from "react";
 import BigNumber from "bignumber.js";
-import { formatCurrency, formatPercentage } from "@/utils";
+import { formatCurrency, formatPercentage } from "@/utils"
 
 const MOTE_RATE = new BigNumber(1_000_000_000);
 
-export function LendingMarket() {
+type MarketStatsCardProps = BoxProps;
+
+export function MarketStatsCard(props: MarketStatsCardProps) {
   const { data: vaultParams } = useGetVaultParams();
   const { data: totalDebt } = useGetTotalDebt();
 
@@ -41,7 +43,7 @@ export function LendingMarket() {
   }, [vaultParams]);
 
   return (
-    <Box bg="primary.solid" borderRadius="32px" w="full" p={8}>
+    <Box bg="primary.solid" borderRadius="32px" w="full" p={8} {...props}>
       <HStack justify="space-between" w="full">
         <VStack align="start" w="full">
           <TextContent text="Total Debt" value={totalDebtFormatted} />

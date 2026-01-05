@@ -41,8 +41,10 @@ export function ValidatorList(props: Props) {
     });
   }, [data]);
 
-  const handleDelegate = (validatorPublicKey: string) => {
-    router.push(`/staking?validator=${validatorPublicKey}`);
+  const handleDelegate = (validator: Validator) => {
+    router.push(
+      `/staking?validator=${validator.public_key}&logo=${validator.account_info?.info.owner?.branding?.logo?.svg || ""}`
+    );
   };
 
   if (isLoading) {
@@ -63,10 +65,33 @@ export function ValidatorList(props: Props) {
           Choose your favorite and delegate to earn{" "}
         </Text>
       </VStack>
-      <VStack w={"full"} h={"full"} overflow={"auto"}>
+      <VStack
+        w={"full"}
+        h={"full"}
+        overflow={"auto"}
+        css={{
+          "::-webkit-scrollbar": {
+            width: "8px",
+            background: "transparent",
+          },
+          "::-webkit-scrollbar-thumb": {
+            background: "#888",
+            borderRadius: "8px",
+          },
+          "::-webkit-scrollbar-thumb:hover": {
+            background: "#555",
+          },
+          scrollbarWidth: "thin",
+          scrollbarColor: "#888 transparent",
+        }}
+      >
         <For each={sortedPerfValidators} fallback={<div>Loading...</div>}>
           {(validator) => (
-            <StayerValidator key={validator.public_key} validator={validator} />
+            <StayerValidator
+              key={validator.public_key}
+              validator={validator}
+              onDelegate={handleDelegate}
+            />
           )}
         </For>
       </VStack>
@@ -76,9 +101,13 @@ export function ValidatorList(props: Props) {
 
 interface StayerValidatorProps extends StackProps {
   validator: Validator;
-  onDelegate?: (validatorPublicKey: string) => void;
+  onDelegate?: (validator: Validator) => void;
 }
-export function StayerValidator({ validator, onDelegate, ...rest }: StayerValidatorProps) {
+export function StayerValidator({
+  validator,
+  onDelegate,
+  ...rest
+}: StayerValidatorProps) {
   const { data: registryData, isLoading: isRegistryLoading } =
     useGetValidatorRegistry(validator.public_key, {
       enabled: !!validator.public_key,
@@ -161,11 +190,7 @@ export function StayerValidator({ validator, onDelegate, ...rest }: StayerValida
             chainDecimals: 9,
           })}
         </Text>
-        <Button 
-          size={"sm"} 
-          w={"full"}
-          onClick={() => onDelegate?.(validator.public_key)}
-        >
+        <Button size={"sm"} w={"full"} onClick={() => onDelegate?.(validator)}>
           Delegate
         </Button>
       </VStack>

@@ -16,7 +16,7 @@ export function Footer(props: Props) {
   return (
     <chakra.footer p={"4"} w={"full"} {...props}>
       <HStack justify={"space-between"} align={"center"} w={"full"} h={"full"}>
-        <Favicon />
+        <Favicon size={"sm"} />
         <VStack align={"start"} justify={"center"} gap={"0"} flex={1}>
           <Heading as="h6" size="sm" fontWeight={"semibold"}>
             {siteConfig.app.name}

@@ -1,8 +1,10 @@
 "use client";
 import { useStake } from "@/app/hooks/useLiquidStaking";
 import { useGetNetworkPAvg } from "@/app/hooks/useValidatorRegistry";
-import { Heading, StackProps, VStack } from "@chakra-ui/react";
+import { Box, Heading, StackProps, Text, VStack } from "@chakra-ui/react";
 import { useEffect } from "react";
+import { MarketStatsCard } from "../../_components/MarketStatsCard";
+import { formatCurrency } from "@/utils";
 
 interface Props extends StackProps {}
 export function MarketOverviewBoard(props: Props) {
@@ -17,10 +19,24 @@ export function MarketOverviewBoard(props: Props) {
   }, [data, error]);
 
   return (
-    <VStack flex={1} h={"full"} rounded={"3xl"} bg={"primary"} p={"4"}>
-      <Heading as="h2" size="4xl" fontWeight={"bold"} color={"primary.contrast"}>
-        Market Overview Board Component
-      </Heading>
+    <VStack
+      flex={1}
+      h={"full"}
+      rounded={"3xl"}
+      justifyContent={"space-between"}
+      alignItems={"start"}
+      bg={"primary"}
+      p={"8"}
+    >
+      <Box>
+        <Heading as="h2" size="6xl" fontWeight={"bold"} color={"fg.inverted"}>
+          MARKET OVERVIEW
+        </Heading>
+        <Text fontSize={"4xl"} fontWeight={"semibold"} color={"fg"}>
+        TVL: {formatCurrency(1740000, 2).toUpperCase()}
+      </Text>
+      </Box>
+      <MarketStatsCard p={0}/>
     </VStack>
   );
 }

@@ -166,7 +166,23 @@ export function ChooseValidatorForm({ onNext }: Props) {
                 </Select.Control>
                 <Portal>
                   <Select.Positioner>
-                    <Select.Content>
+                    <Select.Content
+                      css={{
+                        "::-webkit-scrollbar": {
+                          width: "8px",
+                          background: "transparent",
+                        },
+                        "::-webkit-scrollbar-thumb": {
+                          background: "#888",
+                          borderRadius: "8px",
+                        },
+                        "::-webkit-scrollbar-thumb:hover": {
+                          background: "#555",
+                        },
+                        scrollbarWidth: "thin",
+                        scrollbarColor: "#888 transparent",
+                      }}
+                    >
                       {collection.items.map((validator) => (
                         <Select.Item key={validator.publicKey} item={validator}>
                           <Avatar
@@ -175,7 +191,9 @@ export function ChooseValidatorForm({ onNext }: Props) {
                               `https://api.dicebear.com/7.x/identicon/svg?seed=${validator.publicKey}`
                             }
                           />
-                          <Select.ItemText>{validator.formattedAddress}</Select.ItemText>
+                          <Select.ItemText>
+                            {validator.formattedAddress}
+                          </Select.ItemText>
                           <Select.ItemIndicator />
                         </Select.Item>
                       ))}

@@ -1,5 +1,5 @@
 import { Center, VStack } from "@chakra-ui/react";
-import { Header } from "../_components/Header";
+import { Header } from "../../_components/Header";
 import { Footer } from "@/app/_components/Footer";
 
 export default function Layout({ children }: React.PropsWithChildren) {
