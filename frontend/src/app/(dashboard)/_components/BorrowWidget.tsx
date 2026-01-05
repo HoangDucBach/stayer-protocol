@@ -6,22 +6,55 @@ import { StakeForm } from "./StakeForm";
 import { UnstakeForm } from "./UnstakeForm";
 import { BorrowForm } from "./BorrowForm";
 import { RepayForm } from "./RepayForm";
+import { motion, AnimatePresence } from "framer-motion";
 
 type Props = TabsRootProps;
 
+const tabContentVariants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { duration: 0.2 } },
+  exit: { opacity: 0, transition: { duration: 0.2 } },
+};
+
 export function BorrowWidget(props: Props) {
+  const [activeTab, setActiveTab] = useState("borrow");
+
   return (
-    <Tabs.Root defaultValue="borrow" {...props}>
+    <Tabs.Root
+      value={activeTab}
+      onValueChange={(e) => setActiveTab(e.value)}
+      {...props}
+    >
       <Tabs.List bg="transparent" colorPalette="fg">
         <Tabs.Trigger value="borrow">Borrow</Tabs.Trigger>
         <Tabs.Trigger value="repay">Repay</Tabs.Trigger>
       </Tabs.List>
-      <Tabs.Content value="borrow">
-        <BorrowForm />
-      </Tabs.Content>
-      <Tabs.Content value="repay">
-        <RepayForm />
-      </Tabs.Content>
+      <AnimatePresence mode="wait">
+        {activeTab === "borrow" && (
+          <Tabs.Content value="borrow" key="borrow">
+            <motion.div
+              variants={tabContentVariants}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+            >
+              <BorrowForm />
+            </motion.div>
+          </Tabs.Content>
+        )}
+        {activeTab === "repay" && (
+          <Tabs.Content value="repay" key="repay">
+            <motion.div
+              variants={tabContentVariants}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+            >
+              <RepayForm />
+            </motion.div>
+          </Tabs.Content>
+        )}
+      </AnimatePresence>
     </Tabs.Root>
   );
 }

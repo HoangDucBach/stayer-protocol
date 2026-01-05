@@ -10,6 +10,7 @@ import {
 import {
   Args,
   CLValue,
+  ContractCallBuilder,
   PublicKey,
   TransactionWrapper,
 } from "casper-js-sdk";
@@ -33,6 +34,7 @@ import type {
   WithdrawPayload,
   LiquidatePayload,
 } from "@/types/core";
+import BigNumber from "bignumber.js";
 
 type HooksOptions<TData = unknown, TError = Error, TVariables = void> = {
   options?: Omit<UseMutationOptions<TData, TError, TVariables>, "mutationFn">;
@@ -67,15 +69,16 @@ export function useDeposit({
       if (!activeAccount) throw new Error("No active account");
 
       const senderPublicKey = PublicKey.fromHex(activeAccount.public_key);
-
-      const innerArgs = buildDepositInnerArgs();
+      
+      const amountInMotes = new BigNumber(amount).multipliedBy(1e9).toString();
+      const innerArgs = buildDepositInnerArgs(amountInMotes);
 
       const transactionJson = await buildOdraProxyTransaction({
         senderPublicKey,
         packageHash: STAYER_VAULT_CONTRACT,
         entryPoint: "deposit",
         innerArgs,
-        attachedValue: amount,
+        attachedValue: "0", // No CSPR attached - we're transferring ySCSPR tokens
         paymentAmount: DEFAULT_PAYMENT_GAS,
       });
 
@@ -84,6 +87,8 @@ export function useDeposit({
         activeAccount.public_key
       );
       if (!result) throw new Error("Transaction failed");
+      if (result.cancelled) throw new Error("Transaction cancelled by user");
+
 
       const hash = result.deployHash || result.transactionHash || "";
 
@@ -133,6 +138,7 @@ export function useBorrow({
         activeAccount.public_key
       );
       if (!result) throw new Error("Transaction failed");
+      if (result.cancelled) throw new Error("Transaction cancelled by user");
 
       const hash = result.deployHash || result.transactionHash || "";
 
@@ -182,6 +188,7 @@ export function useRepay({
         activeAccount.public_key
       );
       if (!result) throw new Error("Transaction failed");
+      if (result.cancelled) throw new Error("Transaction cancelled by user");
 
       const hash = result.deployHash || result.transactionHash || "";
 
@@ -234,6 +241,7 @@ export function useWithdraw({
         activeAccount.public_key
       );
       if (!result) throw new Error("Transaction failed");
+      if (result.cancelled) throw new Error("Transaction cancelled by user");
 
       const hash = result.deployHash || result.transactionHash || "";
 
