@@ -9,12 +9,6 @@ const rubik = Rubik({
   subsets: ["latin"],
 });
 
-export const viewport: Viewport = {
-  width: "device-width",
-  initialScale: 1,
-  themeColor: "#000000",
-};
-
 export const metadata: Metadata = {
   metadataBase: new URL(siteConfig.app.url),
   title: {
@@ -23,7 +17,7 @@ export const metadata: Metadata = {
   },
   description: siteConfig.app.description,
   keywords: siteConfig.keywords,
-  authors: [{ name: "Stayer Protocol Team" }],
+  authors: [{ name: "Wynn Chill Lab" }],
   creator: "Stayer Protocol",
   publisher: "Stayer Protocol",
   robots: {
@@ -65,7 +59,6 @@ export const metadata: Metadata = {
     shortcut: "/favicon-16x16.png",
     apple: "/apple-touch-icon.png",
   },
-  manifest: "/site.webmanifest",
 };
 
 export default function RootLayout({

@@ -26,7 +26,7 @@ export function Footer(props: Props) {
           </Text>
         </VStack>
         <Text fontSize={"xs"} color={"fg.subtle"}>
-          Wyner Lab © 2025
+          Wynn Chill Lab © 2025
         </Text>
       </HStack>
     </chakra.footer>

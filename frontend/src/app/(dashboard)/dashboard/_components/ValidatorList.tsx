@@ -17,6 +17,7 @@ import { RiCoinLine } from "react-icons/ri";
 import { FiClock } from "react-icons/fi";
 import { PiUsersBold } from "react-icons/pi";
 import { useRouter } from "next/navigation";
+import { useInView } from "react-intersection-observer";
 
 import { formatAddress, formatToken } from "@/utils";
 import { Avatar } from "@/components/ui/avatar";
@@ -48,7 +49,7 @@ export function ValidatorList(props: Props) {
   };
 
   if (isLoading) {
-    return <div>Loading...</div>;
+    return <Skeleton height="full" flex={1} borderRadius={"3xl"} />;
   }
 
   if (!data) {
@@ -108,9 +109,15 @@ export function StayerValidator({
   onDelegate,
   ...rest
 }: StayerValidatorProps) {
+  const { ref, inView } = useInView({
+    triggerOnce: true,
+    rootMargin: "100px 0px",
+    threshold: 0,
+  });
+
   const { data: registryData, isLoading: isRegistryLoading } =
     useGetValidatorRegistry(validator.public_key, {
-      enabled: !!validator.public_key,
+      enabled: !!validator.public_key && inView,
       staleTime: 1 * 60 * 60 * 1000, // 1 hour
     });
 
@@ -138,6 +145,7 @@ export function StayerValidator({
 
   return (
     <HStack
+      ref={ref}
       align={"start"}
       justify={"space-between"}
       gap={"4"}

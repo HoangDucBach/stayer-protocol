@@ -36,12 +36,18 @@ export function HeroSection({ children, ...rest }: Props) {
           flex={1}
         >
           <Header />
-          <VStack align={"start"} gap={"4"} justify={"center"} flexGrow={1}>
-            <Heading as="h1" size="6xl" fontWeight={"bold"}>
+          <VStack
+            align={"start"}
+            gap={"4"}
+            justify={"center"}
+            flexGrow={1}
+            p={"4"}
+          >
+            <Heading as="h1" size={["6xl", "7xl"]} fontWeight={"bold"}>
               Stake Smart, <br />
               Earn More
             </Heading>
-            <Text color={"fg.subtle"} maxW={"3/4"}>
+            <Text fontSize={"lg"} color={"fg.subtle"} maxW={"3/4"}>
               Liquid staking protocol on Casper Network with performance-based
               rewards & USD borrowing
             </Text>
