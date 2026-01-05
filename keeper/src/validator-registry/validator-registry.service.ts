@@ -37,6 +37,9 @@ export class ValidatorRegistryService {
       this.logger.log('Starting validator update...');
 
       const currentEra = await this.casperService.getCurrentEra();
+      const maxValidators =
+        this.configService.get<number>('maxValidatorsUpdateEachEra') || 150;
+
       this.logger.log(`Current era: ${currentEra}`);
 
       if (currentEra <= this.lastProcessedEra) {
@@ -57,7 +60,7 @@ export class ValidatorRegistryService {
         `Fetched performance scores for ${performanceScores.size} validators`,
       );
 
-      const validatorUpdates: ValidatorUpdateData[] = validators
+      let validatorUpdates: ValidatorUpdateData[] = validators
         .map((v) => ({
           pubkey: v.publicKey,
           fee: v.fee,
@@ -68,6 +71,13 @@ export class ValidatorRegistryService {
           ),
         }))
         .sort((a, b) => b.decayFactor - a.decayFactor);
+
+      if (maxValidators > 0 && validatorUpdates.length > maxValidators) {
+        this.logger.log(
+          `Limiting updates: Taking top ${maxValidators} out of ${validatorUpdates.length} validators.`,
+        );
+        validatorUpdates = validatorUpdates.slice(0, maxValidators);
+      }
 
       const BATCH_SIZE = 30;
       const totalBatches = Math.ceil(validatorUpdates.length / BATCH_SIZE);
