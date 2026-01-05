@@ -1,0 +1,341 @@
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+% The preceding line is only needed to identify funding in the first footnote. If that is unneeded, please comment it out.
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+\begin{document}
+
+\title{Stayer Finance: Liquid Staking And Stablecoin Protocol}
+
+\author{
+\IEEEauthorblockN{
+\textbf{Wynn Chill Lab}
+}
+\IEEEauthorblockA{
+\textit{University of Engineering and Technology} \\
+\textit{Vietnam National University, Hanoi} \\
+ hello@stayer.finance
+}
+}
+\maketitle
+
+\begin{abstract}
+This paper introduces Stayer, a noncustodial dual-layer decentralized finance (DeFi) protocol designed for the Casper Network to enhance capital efficiency and validator accountability. The protocol addresses the inherent tension between network security and liquidity by implementing a performance-based liquid staking mechanism. Unlike traditional liquid staking models, Stayer utilizes a validator performance multiplier system—ranging from 0.5× to 1.5×—to adjust the issuance of the liquid staking token (ySCSPR) based on commission efficiency and operational reliability. This mechanism creates a game-theoretic alignment that incentivizes delegators to support high-performing nodes, thereby strengthening network health. Furthermore, the protocol introduces a second layer consisting of a Collateralized Debt Position (CDP) system, allowing users to mint cUSD, a native overcollateralized stablecoin, against ySCSPR collateral. Security is maintained through a three-layer oracle architecture incorporating Time-Weighted Average Price (TWAP) and circuit-breaker mechanisms. By providing an integrated solution for capital liquidity, merit-based delegation, and native stablecoin primitives, Stayer establishes a robust foundation for the Casper DeFi ecosystem. Our analysis indicates that the auto-appreciating nature of the ySCSPR collateral significantly reduces liquidation risks compared to static assets.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Blockchain, Casper Network, liquid staking, stablecoin, CDP, validator performance, DeFi, ySCSPR, cUSD.
+\end{IEEEkeywords}
+
+\section{Introduction}
+The rapid proliferation of Proof-of-Stake (PoS) networks has established a paradigm where network security is directly proportional to the volume of staked capital. However, this security model introduces an inherent conflict between network integrity and capital efficiency. Staked assets on the Casper Network, while vital for consensus, are rendered illiquid for the duration of their delegation. This illiquidity is exacerbated by a 14-hour unbonding period, creating a significant opportunity cost for participants who must choose between securing the network and engaging in decentralized finance (DeFi) activities.
+
+While liquid staking protocols have emerged as a solution by issuing derivative tokens, current implementations often treat validator sets as a monolith. By applying uniform issuance rates, these protocols ignore critical variances in validator performance, such as commission rates and operational uptime. Consequently, capital allocation in the staking ecosystem is frequently driven by marketing visibility rather than technical merit, failing to incentivize the highest standards of network reliability. Furthermore, the Casper ecosystem currently lacks a native, decentralized stablecoin primitive, forcing users to rely on bridged assets that introduce external custodial and bridge-related risks.
+
+To address these challenges, we present the Stayer Protocol, a dual-layer DeFi framework designed specifically for the Casper Network. Stayer introduces a novel Performance-Based Liquid Staking mechanism that adjusts the issuance of its liquid staking token, ySCSPR, based on validator performance multipliers ranging from 0.5× to 1.5×. This system creates a game-theoretic environment where rational actors are incentivized to delegate to high-performing validators, thereby enhancing overall network health.
+
+The protocol's second layer features a Collateralized Debt Position (CDP) system, enabling users to mint cUSD, a native overcollateralized stablecoin, against their ySCSPR holdings. This architecture allows participants to maintain their staking exposure and performance rewards while simultaneously accessing dollar-denominated liquidity. Supported by a robust three-layer oracle architecture, Stayer Protocol provides a comprehensive solution for liquidity, validator alignment, and decentralized stablecoin utility within the Casper ecosystem. 
+
+The Casper Network staking ecosystem faces three primary challenges that impede capital efficiency and network optimization: capital illiquidity, validator incentive misalignment, and the lack of native decentralized liquidity.
+
+\section{Problem Analysis}
+\subsection{Capital Illiquidity and Unbonding Constraints}
+Proof-of-Stake (PoS) networks necessitate a lock-up period to ensure network security and prevent long-range attacks. On the Casper Network, this is manifested as a 14-hour unbonding period, spanning two eras. During this interval, staked capital is non-transferable and does not generate rewards, creating a significant opportunity cost for participants. This illiquidity prevents the use of the underlying asset in DeFi protocols, forcing a binary choice between earning staking yields and maintaining liquid capital.
+
+\subsection{Incentive Misalignment in Validator Selection}
+Existing liquid staking implementations often utilize a uniform issuance model, where the exchange rate between the staked asset and the derivative token is identical across the entire validator set. This model fails to account for the variance in validator performance metrics, specifically:
+\begin{itemize}
+    \item \textbf{Commission Rates ($F_v$):} High-fee validators reduce the net yield for delegators without necessarily providing superior service.
+    \item \textbf{Operational Reliability:} Factors such as uptime and block production consistency are often ignored in capital allocation.
+\end{itemize}
+
+Under a uniform system, capital allocation is driven by marketing visibility rather than merit. This lacks a game-theoretic mechanism to drive stake toward high-performing nodes, which is essential for long-term network health.
+
+\subsection{Absence of Native Stablecoin Primitives}
+The Casper ecosystem currently relies heavily on bridged assets to provide dollar-denominated liquidity. This reliance introduces two distinct layers of risk: custodial risk from centralized entities managing reserves, and smart contract/bridge risk from potential vulnerabilities in the bridging infrastructure. The absence of a native, overcollateralized stablecoin prevents the development of a self-sustaining DeFi layer within the network.
+
+\subsection{Mathematical Representation of the Yield Gap}
+The opportunity cost $C_{opp}$ for a staker can be expressed as the difference between the potential DeFi return $R_{defi}$ and the staking yield $R_{stake}$, compounded by the liquidity premium $L_p$:
+
+\begin{equation}
+C_{opp} = (R_{defi} + L_p) - R_{stake}
+\end{equation}
+
+Without a liquid staking solution, $C_{opp}$ remains high, discouraging participation in network security or reducing the total value locked (TVL) in the ecosystem's DeFi protocols. 
+
+\section{Protocol Design}
+The Stayer Protocol is architected as a modular dual-layer decentralized finance (DeFi) framework. The first layer focuses on Performance-Based Liquid Staking, while the second layer provides a Collateralized Debt Position (CDP) mechanism for native stablecoin minting.
+
+\subsection{Performance Score System}
+The defining innovation of the Stayer Protocol is its transition from uniform issuance to a performance-adjusted model.
+
+\subsubsection{Performance Score (P-Score) Formula}
+To incentivize network health, each validator $v$ is assigned a Performance Score $P_v$, which formalizes the trade-off between cost and reliability:
+\begin{equation}
+P_v = (100 - F_v) \times D_v
+\end{equation}
+where $F_v$ represents the validator's commission rate ($0 \leq F_v \leq 100$), and $D_v$ represents the operational decay factor. This formula ensures that validators with lower commissions and higher uptime receive superior scores, directly benefiting their delegators.
+
+\subsubsection{Decay Factor Rationale}
+The decay factor $D_v$ addresses operational reliability by penalizing inactivity:
+\begin{equation}
+D_v = \max\left(0.5, 1 - \frac{\Delta e}{E_{max}}\right)
+\end{equation}
+where $\Delta e$ is the number of eras since the validator's last reward and $E_{max}$ is a threshold (default: 10 eras). This mechanism ensures that even a low-fee validator is penalized if they fail to produce blocks, as their $D_v$ will trend toward 0.5, reducing the rewards for their delegators.
+
+\subsubsection{Multiplier Bounds Analysis}
+To translate $P_v$ into liquid token issuance, the protocol computes a multiplier $M_v$ based on the network average performance $\bar{P}$:
+\begin{equation}
+M_v = \frac{P_v \times 10000}{\bar{P}}
+\end{equation}
+To maintain economic stability and prevent extreme issuance anomalies, the protocol applies a bounding function:
+\begin{equation}
+M_v^{bounded} = \max(5000, \min(15000, M_v))
+\end{equation}
+This bounds the multiplier between $0.5\times$ and $1.5\times$. This range is wide enough to drive rational delegators toward high-performing validators while protecting the protocol from potential "death spirals" or hyper-inflationary issuance by a single validator.
+
+\subsection{Liquid Staking Layer}
+The liquid staking layer manages the conversion of CSPR into the yield-bearing ySCSPR token.
+
+\subsubsection{ySCSPR Minting Mechanism}
+When a user stakes $\Delta_{CSPR}$ with validator $v$, the amount of ySCSPR minted is determined by both the performance multiplier and the current exchange rate $R$:
+\begin{equation}
+\Delta_{ySCSPR} = \frac{\Delta_{CSPR} \times M_v^{bounded}}{R \times 10000}
+\end{equation}
+This ensures that users entering the pool at different times or with different validators are treated fairly according to the protocol's game-theoretic incentives.
+
+\subsubsection{Exchange Rate Dynamics}
+The exchange rate $R$ represents the ratio of total CSPR staked (including accrued rewards) to the total ySCSPR supply:
+\begin{equation}
+R = \frac{T_{staked}}{S_{ySCSPR}} \times 10^{18}
+\end{equation}
+As rewards accrue from the Casper auction contract, $T_{staked}$ grows while $S_{ySCSPR}$ remains constant. Consequently, $R$ appreciates over time, allowing ySCSPR to function as a rebasing-free, value-accruing asset.
+
+\subsubsection{Unbonding Bypass via Secondary Market}
+While the protocol supports native unstaking, it is subject to Casper's 14-hour unbonding period. To provide immediate liquidity, ySCSPR is designed as a standard CEP-18 token, allowing it to be traded on secondary markets. This market-based exit allows users to bypass the unbonding period at the cost of a potential market discount, providing flexibility for time-sensitive capital deployment.
+
+\subsection{CDP Vault Layer}
+The CDP layer allows users to unlock liquidity from their ySCSPR holdings without sacrificing staking rewards.
+
+\subsubsection{Collateralization Model}
+Users deposit ySCSPR into the \texttt{StayerVault} to mint cUSD, a stablecoin pegged to the US Dollar. The system enforces a maximum Loan-to-Value (LTV) of 50\% for new positions. A unique advantage of using ySCSPR as collateral is its auto-appreciating nature; as staking rewards accrue, the value of the collateral increases relative to the debt, naturally lowering the LTV over time.
+
+\subsubsection{Health Factor Computation}
+The solvency of a position is monitored via the health factor $H$:
+\begin{equation}
+H = \frac{C \times P_{ySCSPR} \times L_{threshold}}{D}
+\end{equation}
+where $C$ is the collateral amount, $P_{ySCSPR}$ is the oracle price, $D$ is the debt including accrued stability fees, and $L_{threshold}$ is the liquidation threshold (110\%). A position is deemed "healthy" and safe from liquidation as long as $H \geq 1$.
+
+\subsubsection{Liquidation Mechanism}
+If $H < 1$, the position becomes eligible for liquidation. Any external actor (liquidator) may repay the outstanding debt $D$ to receive an equivalent value of ySCSPR collateral plus a 10\% liquidation penalty:
+\begin{equation}
+Collateral_{received} = D \times (1 + L_{penalty})
+\end{equation}
+This penalty incentivizes borrowers to maintain healthy ratios while ensuring liquidators are compensated for providing capital to secure the protocol's solvency.
+
+\section{Economic Model}
+The economic viability of the Stayer Protocol is predicated on a self-reinforcing feedback loop between validator performance, capital allocation, and secondary market liquidity. This section analyzes the flow of value, fee structures, and the game-theoretic incentives driving participant behavior.
+
+\subsection{Token Flow Dynamics}
+The protocol facilitates a circular economy through three primary tokens: CSPR (native), ySCSPR (liquid staking), and cUSD (stablecoin).
+\begin{enumerate}
+    \item \textbf{Value Capture}: CSPR is deposited into the LiquidStaking contract, which delegates to the Casper auction contract. Staking rewards accrue back to the pool, increasing the internal exchange rate $R$.
+    \item \textbf{Liquidity Provision}: ySCSPR is issued to users, representing their claim on the pool. This token can be traded on Decentralized Exchanges (DEXs) or used as collateral in the CDP layer.
+    \item \textbf{Debt Cycles}: Users mint cUSD by locking ySCSPR. Repayment involves burning cUSD plus accrued stability fees, which are retained by the protocol treasury.
+\end{enumerate}
+
+
+\subsection{Fee Structure Analysis}
+To ensure protocol sustainability and solvency, Stayer implements a targeted fee architecture:
+\begin{itemize}
+    \item \textbf{Stability Fee ($r$)}: A 2\% APR is charged on outstanding cUSD debt. This fee compensates the protocol for the risk of maintaining the stablecoin peg and managing the CDP infrastructure.
+    \item \textbf{Liquidation Penalty ($L_{penalty}$)}: A 10\% penalty is applied when a position's health factor $H < 1$. This penalty is split between the liquidator (incentive for providing capital) and the protocol (risk mitigation).
+    \item \textbf{Inactivity Decay}: While not a direct fee to the protocol, the decay factor $D_v$ functions as an economic penalty for underperforming validators, redistributing potential issuance toward more reliable nodes.
+\end{itemize}
+
+\subsection{Yield Projections and Scenarios}
+The total yield for a Stayer participant is a composite of native staking rewards, performance boosts, and DeFi deployment yields.
+
+\subsubsection{Composite Yield Formula}
+The total potential annual percentage yield ($APY_{total}$) is defined as:
+\begin{equation}
+APY_{total} = (R_{base} \times M_v) + (LTV \times R_{defi}) - r
+\end{equation}
+where $R_{base}$ is the Casper base staking rate ($\sim$7--8\%), $M_v$ is the performance multiplier, $R_{defi}$ is the yield from deployed cUSD, and $r$ is the stability fee.
+
+\subsubsection{Scenario Analysis}
+Table \ref{tab:yield_scenarios} illustrates the risk-return profile across different user behaviors.
+
+\begin{table}[htbp]
+\caption{Stayer Protocol Yield Scenarios}
+\begin{center}
+\begin{tabular}{|l|c|c|c|}
+\hline
+\textbf{Strategy} & \textbf{Risk Level} & \textbf{Estimated APY} \\
+\hline
+ySCSPR Holding (Low P-score) & Low & 7\% -- 12\% \\
+ySCSPR Holding (High P-score) & Low & 10\% -- 15\% \\
+CDP Borrowing (50\% LTV) & Medium & 12\% -- 18\% \\
+CDP Leveraged Staking & High & 15\% -- 27\% \\
+\hline
+\end{tabular}
+\label{tab:yield_scenarios}
+\end{center}
+\end{table}
+
+\subsection{Game Theory: Rational Delegate Behavior}
+The Performance Score system creates a game-theoretic environment that optimizes network security without manual governance.
+
+\subsubsection{The Rational Actor's Choice}
+A rational delegator seeks to maximize their liquid token issuance $\Delta_{ySCSPR}$. Given the issuance formula:
+\begin{equation}
+\Delta_{ySCSPR} \propto M_v^{bounded}
+\end{equation}
+the delegator will always choose the validator $v$ that maximizes $M_v^{bounded}$. Since $M_v$ is a direct function of the P-score ($P_v = (100 - F_v) \times D_v$), capital naturally flows toward validators with:
+\begin{enumerate}
+    \item \textbf{Low Commission ($F_v$)}: Reducing the fee maximizes the score.
+    \item \textbf{High Reliability ($D_v$)}: Maintaining uptime prevents decay.
+\end{enumerate}
+
+\subsubsection{Validator Competition}
+This creates a competitive equilibrium. Validators are forced to lower their commissions and invest in robust hardware to attract stake. If a validator increases fees or suffers downtime, the multiplier $M_v$ drops, triggering an immediate exit of rational capital toward higher-performing competitors. This "liquidity-weighted consensus" ensures that Casper's security is concentrated in the hands of the most efficient and reliable operators.
+
+\subsubsection{Auto-Appreciation as Risk Mitigation}
+Unlike static collateral, ySCSPR is an auto-appreciating asset because $R$ increases as rewards accrue. This creates a "safety margin" for CDP borrowers; even if the market price of CSPR remains flat, the health factor $H$ of a position will naturally improve over time as the collateral value outpaces the 2\% stability fee.
+
+\section{Oracle \& Security}
+The Stayer Protocol's reliance on accurate price data for Collateralized Debt Position (CDP) solvency necessitates a robust and resilient oracle infrastructure. This section details the multi-layered oracle design and the protocol's systemic security mitigations.
+
+\subsection{Three-Layer Oracle Architecture}
+To ensure the integrity of price feeds against manipulation and technical failure, Stayer implements a hierarchical oracle system.
+
+\subsubsection{Layer 1: Primary Oracle (Styks TWAP)}
+The primary price feed is derived from the Styks Decentralized Exchange (DEX) using a Time-Weighted Average Price (TWAP). The price is calculated over a 30-minute sliding window to mitigate the impact of flash-loan attacks and temporary volatility:
+\begin{equation}
+P_{TWAP} = \frac{\sum_{i=t_1}^{t_2} P_i \times \Delta t_i}{t_2 - t_1}
+\end{equation}
+This mechanism ensures that a single large trade cannot instantly manipulate the collateral valuation within the vault system.
+
+\subsubsection{Layer 2: Staleness Detection}
+The protocol tracks the timestamp of every update ($t_{last}$). If the duration since the last update exceeds the staleness threshold ($T_{stale} = 2$ hours), the oracle enters a "stale" state. This acts as a safeguard against infrastructure outages or underlying DEX liquidity freezes.
+
+\subsubsection{Layer 3: Emergency Fallback}
+In the event of a total failure of on-chain price feeds, the protocol administrators maintain a manual price override capability. This is a last-resort mechanism controlled via multi-signature authority to prevent protocol insolvency during extreme "black swan" events.
+
+\subsection{Circuit Breaker Mechanisms}
+To protect the system during periods of high uncertainty, Stayer employs automated circuit breakers.
+\begin{itemize}
+    \item \textbf{Price Staleness Lock}: When the $T_{stale}$ threshold is breached, the protocol automatically halts all borrowing and liquidation operations. This prevents the execution of liquidations based on outdated (and potentially incorrect) market data.
+    \item \textbf{Emergency Pause}: A global circuit breaker flag can be toggled by the admin multi-sig to pause all contract interactions in the event of a discovered smart contract vulnerability.
+\end{itemize}
+
+\section{Smart Contract Architecture}
+The Stayer Protocol is implemented as a modular suite of smart contracts on the Casper Network, utilizing the CEP-18 token standard for its liquid assets. The architecture is designed to separate validator logic, liquid staking operations, and collateralized debt management.
+
+\subsection{Contract Interaction Framework}
+\subsubsection{System-Wide Interaction Framework}
+The overall protocol lifecycle, from user staking to oracle price integration, is coordinated through a series of automated interactions between core contracts and external actors. 
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\linewidth]{stayer_flow_diagram.png} 
+    \caption{Stayer Flow Diagram: Illustrating the interaction between users, the Stayer Protocol, Stayer Keepers, and the dual-oracle price feed system.}
+    \label{fig:stayer_flow}
+\end{figure}
+
+As shown in Fig. \ref{fig:stayer_flow}, the protocol operations are supported by two critical background processes:
+\begin{itemize}
+    \item \textbf{Stayer Keepers}: These off-chain entities update the protocol state every 2 eras, tracking validator performance metrics and calculating $P$-scores to ensure the $M_v$ multipliers remain accurate.
+    \item \textbf{Price Oracle Integration}: The protocol consumes Time-Weighted Average Price (TWAP) data from the Styks Oracle, providing a manipulation-resistant price feed for both CSPR and ySCSPR.
+\end{itemize}
+
+\subsubsection{Lending and Vault Logic}
+The CDP (Collateralized Debt Position) layer is managed by the Stayer Vault Protocol, which governs the lifecycle of the cUSD stablecoin. This layer allows users to unlock value from their staked assets without losing exposure to Casper network rewards.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\linewidth]{lending_flow_diagram.png}
+    \caption{Stayer Lending Flow Diagram: The mechanism for locking ySCSPR collateral to mint cUSD and the subsequent repayment/burning process.}
+    \label{fig:lending_flow}
+\end{figure}
+
+The lending process, visualized in Fig. \ref{fig:lending_flow}, follows a strict "Lock-and-Mint" and "Release-and-Burn" cycle:
+\begin{itemize}
+    \item \textbf{Borrowing Phase}: Users deposit ySCSPR as collateral into the Stayer Vault. Based on the current oracle price and a 50\% Loan-to-Value (LTV) ratio, the protocol mints the corresponding amount of cUSD.
+    \item \textbf{Repayment Phase}: To reclaim their collateral, users must return the borrowed cUSD. The protocol then burns the stablecoins and releases the ySCSPR back to the user's wallet.
+\end{itemize}
+
+\subsubsection{Key Contract Components}
+The architecture is comprised of several specific entry points that facilitate these flows:
+\begin{itemize}
+    \item \textbf{ValidatorRegistry}: Stores $P$-scores and operational data for all Casper validators.
+    \item \textbf{LiquidStaking}: Handles the conversion of CSPR to ySCSPR using the performance-adjusted formula.
+    \item \textbf{StayerVault}: Manages position state, including collateral amounts, debt balances, and health factor calculations for liquidations.
+\end{itemize}
+
+\subsection{Key Functions Overview}
+The system's operational logic is exposed through several high-level entry points across the core contracts.
+
+\subsubsection{ValidatorRegistry Entry Points}
+\begin{itemize}
+    \item \texttt{update\_validator}: Used by authorized keepers to submit the latest performance metrics ($F_v, D_v$) for a specific validator.
+    \item \texttt{get\_multiplier}: A public view function that returns the bounded performance multiplier ($M_v^{bounded}$) for a given validator address.
+\end{itemize}
+
+\subsubsection{LiquidStaking Entry Points}
+\begin{itemize}
+    \item \texttt{stake}: Accepts CSPR deposits, calls the \texttt{ValidatorRegistry} for the multiplier, and mints the adjusted amount of ySCSPR to the user.
+    \item \texttt{unstake}: Initiates the 14-hour unbonding process by burning ySCSPR tokens and signaling undelegation to the Casper network.
+\end{itemize}
+
+\subsubsection{StayerVault Entry Points}
+\begin{itemize}
+    \item \texttt{borrow}: Verifies the user's collateral value against the 50\% Loan-to-Value (LTV) limit and mints cUSD stablecoins.
+    \item \texttt{liquidate}: Allows third parties to repay debt for unhealthy positions ($H < 1$) in exchange for ySCSPR collateral plus a 10\% penalty.
+\end{itemize}
+
+\subsection{Upgrade and Governance Mechanism}
+The Stayer Protocol follows a path of progressive decentralization to balance initial agility with long-term security.
+
+\subsubsection{Contract Immutability}
+By design, the core smart contracts are non-upgradeable to ensure that the protocol's mathematical logic (such as the issuance formula) cannot be altered post-deployment. This provides users with deterministic guarantees regarding their staked assets.
+
+\subsubsection{Administrative Controls}
+During the initial bootstrap phase, certain parameters are managed by a core team admin key:
+\begin{itemize}
+    \item \textbf{Emergency Pause}: An administrative circuit breaker that can halt \texttt{borrow} and \texttt{liquidate} functions in the event of a discovered vulnerability.
+    \item \textbf{Parameter Tuning}: Adjusting LTV ratios, stability fees, and validator whitelists.
+\end{itemize}
+
+\subsubsection{Progressive Decentralization}
+The roadmap includes the transition of administrative authority to a 3-of-5 multi-signature wallet, followed by the implementation of a Decentralized Autonomous Organization (DAO). This DAO will eventually assume control over the \texttt{PriceOracle} emergency overrides and parameter governance through token-weighted voting.
+
+\section{Governance \& Roadmap}
+Stayer Protocol is designed for progressive decentralization to balance initial stability with long-term community autonomy.
+
+\subsection{Decentralization Path}
+The protocol follows a three-stage roadmap toward full autonomy:
+\begin{itemize}
+    \item \textbf{Initial Phase}: Centralized control by the core team over the validator whitelist, oracle updates, and emergency pause authority.
+    \item \textbf{Intermediate Phase}: Transition of administrative authority to a 3-of-5 multi-signature wallet and decentralization of the keeper network through stake requirements.
+    \item \textbf{Full Decentralization}: Implementation of a Decentralized Autonomous Organization (DAO) with token-weighted voting and the removal of administrative keys.
+\end{itemize}
+
+\subsection{Parameter Governance}
+Post-decentralization, the DAO will govern critical systemic parameters, including:
+\begin{itemize}
+    \item \textbf{LTV and Liquidation Ratios}: Adjusting the 50\% LTV or the 110\% liquidation threshold based on market volatility.
+    \item \textbf{Fee Structures}: Modifying the 2\% stability fee or the 10\% liquidation penalty to optimize protocol revenue and solvency.
+    \item \textbf{Validator Management}: Maintaining the validator registry and adjusting the $E_{max}$ decay threshold.
+\end{itemize}
+
+
+\end{document}
+

@@ -9,7 +9,7 @@ const siteConfig = {
   },
   pages: {
     landing: {
-      title: "Stayer Finance | Liquid Staking on Casper",
+      title: "Stayer Finance | Liquid Staking & Stablecoin on Casper",
       description:
         "Unlock the power of liquid staking on Casper Network. Stake CSPR, receive ysCSPR, and earn rewards while maintaining liquidity.",
     },
