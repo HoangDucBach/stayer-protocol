@@ -9,6 +9,7 @@ export interface AppConfig {
   harvestIntervalMs: number;
   withdrawalIntervalMs: number;
   delegationIntervalMs: number;
+  maxValidatorsUpdateEachEra: number;
   csprCloudApiKey?: string;
   csprCloudApiUrl?: string;
 }
@@ -34,6 +35,9 @@ export const config = (): AppConfig => ({
   delegationIntervalMs: parseInt(
     process.env.DELEGATION_INTERVAL_MS || '3600000', // 1 hour
     10,
+  ),
+  maxValidatorsUpdateEachEra: parseInt(
+    process.env.MAX_VALIDATORS_UPDATE_EACH_ERA || '150',
   ),
   csprCloudApiKey: process.env.CSPR_CLOUD_API_KEY,
   csprCloudApiUrl: process.env.CSPR_CLOUD_API_URL,

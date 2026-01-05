@@ -64,6 +64,9 @@ export class SchedulerService implements OnModuleInit {
     this.logger.log(
       `Delegation processing scheduled every ${delegationInterval}ms (${delegationInterval / 1000 / 60} minutes)`,
     );
+
+    // Execute validator update once immediately on startup
+    void this.handleValidatorUpdate();
   }
 
   async handleValidatorUpdate() {
