@@ -1,3 +1,4 @@
+import { CASPER_CHAIN_NAME, CASPER_CLICK_APP_ID } from "@/configs/constants";
 import siteConfig from "@/configs/site";
 import {
   CONTENT_MODE,
@@ -7,7 +8,8 @@ import {
 
 export const clickOptions: CsprClickInitOptions = {
   appName: siteConfig.app.name,
-  appId: "csprclick-template",
+  appId: CASPER_CLICK_APP_ID,
+  chainName: CASPER_CHAIN_NAME,
   contentMode: CONTENT_MODE.IFRAME,
   providers: [
     WALLET_KEYS.CASPER_WALLET,

@@ -7,6 +7,8 @@ export const CASPER_EVENTS_URL = process.env.NEXT_PUBLIC_CASPER_LIVENET_EVENTS_U
 export const CASPER_NODE_URL = process.env.NEXT_PUBLIC_NODE_URL!;
 export const CASPER_EXPLORER_URL = process.env.NEXT_PUBLIC_CASPER_LIVE_EXPLORER_URL!;
 
+export const CASPER_CLICK_APP_ID = process.env.NEXT_PUBLIC_CASPER_CLICK_APP_ID!;
+
 // Contract Addresses
 export const PRICE_ORACLE_CONTRACT = process.env.NEXT_PUBLIC_PRICE_ORACLE!;
 export const VALIDATOR_REGISTRY_CONTRACT = process.env.NEXT_PUBLIC_VALIDATOR_REGISTRY!;
