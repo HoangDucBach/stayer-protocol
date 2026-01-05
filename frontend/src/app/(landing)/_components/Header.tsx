@@ -15,7 +15,7 @@ export function Header(props: Props) {
   const items = [
     {
       label: "Whitepaper",
-      href: "https://whitepaper.stayer.finance",
+      href: "https://stayer.finance/stayer.pdf",
     },
     {
       label: "Docs",
