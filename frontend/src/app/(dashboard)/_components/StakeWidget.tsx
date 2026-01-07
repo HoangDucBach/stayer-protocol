@@ -1,13 +1,35 @@
 "use client";
 
-import { Tabs, TabsRootProps } from "@chakra-ui/react";
-import { useState, useEffect } from "react";
+import {
+  Box,
+  Button,
+  Center,
+  DialogPositioner,
+  Image,
+  Tabs,
+  TabsRootProps,
+  Text,
+  VStack,
+} from "@chakra-ui/react";
+import { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { ChooseValidatorForm } from "./ChooseValidatorForm";
 import { StakeForm } from "./StakeForm";
 import { UnstakeForm } from "./UnstakeForm";
-import { AnimatePresence } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { formatAddress } from "@/utils";
+import {
+  DialogBackdrop,
+  DialogBody,
+  DialogCloseTrigger,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogRoot,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Avatar } from "@/components/ui/avatar";
+import { useConfetti } from "@/hooks/useConfetti";
 
 type Props = TabsRootProps;
 
@@ -25,6 +47,8 @@ export function StakeWidget(props: Props) {
   const [selectedValidator, setSelectedValidator] =
     useState<SelectedValidator | null>(null);
   const [currentTab, setCurrentTab] = useState("stake");
+  const [completedTxHash, setCompletedTxHash] = useState<string | null>(null);
+  const [isCompletedDialogOpen, setIsCompletedDialogOpen] = useState(false);
 
   useEffect(() => {
     const validatorParam = searchParams.get("validator");
@@ -55,6 +79,16 @@ export function StakeWidget(props: Props) {
     setStakeStep(1);
   };
 
+  const handleStakeComplete = (txHash: string) => {
+    setCompletedTxHash(txHash);
+    setIsCompletedDialogOpen(true);
+  };
+
+  const handleCloseCompletedDialog = () => {
+    setIsCompletedDialogOpen(false);
+    setCompletedTxHash(null);
+  };
+
   return (
     <Tabs.Root
       defaultValue="stake"
@@ -78,6 +112,7 @@ export function StakeWidget(props: Props) {
               <StakeForm
                 validator={selectedValidator}
                 onBack={handleBack}
+                onStakeComplete={handleStakeComplete}
                 key="stake-form"
               />
             ) : null}
@@ -100,6 +135,95 @@ export function StakeWidget(props: Props) {
           </AnimatePresence>
         </Tabs.Content>
       </AnimatePresence>
+      <CompletedTransaction
+        transactionHash={""}
+        isOpen={isCompletedDialogOpen}
+        onClose={handleCloseCompletedDialog}
+      />
     </Tabs.Root>
   );
 }
+
+interface CompletedTransactionProps {
+  transactionHash: string;
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+const CompletedTransaction = ({
+  transactionHash,
+  isOpen,
+  onClose,
+}: CompletedTransactionProps) => {
+  const iconRef = useRef<HTMLDivElement | null>(null);
+  const { fireworks, fire } = useConfetti();
+
+  useEffect(() => {
+    if (isOpen) {
+      setTimeout(() => fireworks(), 300);
+    }
+  }, [isOpen, fireworks]);
+
+  return (
+    <DialogRoot
+      open={isOpen}
+      onOpenChange={(e) => !e.open && onClose()}
+      size={"full"}
+    >
+      <DialogBackdrop />
+      <DialogPositioner>
+        <DialogContent colorPalette="primary" bg="bg" p={20}>
+          <DialogHeader justifyContent="center">
+            <Text fontSize="3xl" fontWeight="bold">
+              Congratulations!
+            </Text>
+          </DialogHeader>
+          <DialogBody w="full" flex="1" justifyItems="center">
+            <VStack gap={6} py={4} maxW="lg">
+              <motion.div
+                animate={{
+                  rotate: [0, 10, -10, 7, -7, 0],
+                  scale: [1, 1.05, 1],
+                }}
+                transition={{
+                  duration: 1.2,
+                  repeat: Infinity,
+                  repeatDelay: 1,
+                  ease: "easeInOut",
+                }}
+              >
+                <Image
+                  src="/assets/yscspr-token-icon.svg"
+                  alt="ySCSPR Token Icon"
+                  w={32}
+                  h={32}
+                />
+              </motion.div>
+
+              <VStack gap={2}>
+                <Text fontSize="xl" fontWeight="semibold" color="green.600">
+                  You're All Set!
+                </Text>
+                <Text fontSize="md" color="fg.muted" textAlign="center">
+                  Sit back, relax, and maybe grab a drink — your CSPR is now
+                  staked! You'll start earning ySCSPR rewards automatically.
+                </Text>
+              </VStack>
+              <Text fontSize="sm" color="fg.muted" textAlign="center">
+                Every reward counts — watch them grow!
+              </Text>
+              <Button
+                onClick={onClose}
+                borderRadius={"2xl"}
+                size="lg"
+                colorScheme="green"
+              >
+                Awesome!
+              </Button>
+            </VStack>
+          </DialogBody>
+        </DialogContent>
+      </DialogPositioner>
+    </DialogRoot>
+  );
+};

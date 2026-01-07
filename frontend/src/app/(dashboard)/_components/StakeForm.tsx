@@ -37,6 +37,7 @@ import { LIQUID_STAKING_CONSTANTS } from "@/configs/constants";
 type Props = {
   validator: SelectedValidator;
   onBack?: () => void;
+  onStakeComplete?: (txHash: string) => void;
 };
 
 const MOTE_RATE = new BigNumber(1_000_000_000);
@@ -59,7 +60,7 @@ const stakeSchema = z.object({
 
 type StakeFormData = z.infer<typeof stakeSchema>;
 
-export function StakeForm({ validator, onBack }: Props) {
+export function StakeForm({ validator, onBack, onStakeComplete }: Props) {
   const clickRef = useClickRef();
 
   const {
@@ -93,6 +94,10 @@ export function StakeForm({ validator, onBack }: Props) {
           description: `Transaction hash: ${hash}`,
           type: "success",
         });
+        // Trigger completion callback
+        if (onStakeComplete) {
+          onStakeComplete(hash);
+        }
       },
       onError: (error) => {
         toaster.create({
