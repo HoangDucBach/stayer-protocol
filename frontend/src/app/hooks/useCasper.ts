@@ -154,6 +154,7 @@ export function useGetCurrentEra(options?: HookOptions<number>) {
       const result = await csprApiClient.get<SingleResponse<AuctionMetrics>>(
         "/auction-metrics"
       );
+      console.log("Fetched Current Era ID:", result.data.data.current_era_id);
       return result.data.data.current_era_id;
     },
     staleTime: 30000,

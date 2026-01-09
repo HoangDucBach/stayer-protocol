@@ -2,6 +2,7 @@
 import { useGetValidators, type Validator } from "@/app/hooks/useCasper";
 import { useGetValidator as useGetValidatorRegistry } from "@/app/hooks/useValidatorRegistry";
 import {
+  Badge,
   Button,
   For,
   Heading,
@@ -14,13 +15,18 @@ import {
   VStack,
 } from "@chakra-ui/react";
 import { motion } from "framer-motion";
-import { RiCoinLine } from "react-icons/ri";
-import { FiClock } from "react-icons/fi";
+import { RiAwardFill, RiCoinLine } from "react-icons/ri";
+import { FiCircle, FiClock } from "react-icons/fi";
 import { PiUsersBold } from "react-icons/pi";
 import { useRouter } from "next/navigation";
 import { useInView } from "react-intersection-observer";
 
-import { formatAddress, formatToken } from "@/utils";
+import {
+  formatAddress,
+  formatNumber,
+  formatPercentage,
+  formatToken,
+} from "@/utils";
 import { Avatar } from "@/components/ui/avatar";
 import { useMemo } from "react";
 import { CASPER_EXPLORER_URL } from "@/configs/constants";
@@ -45,7 +51,9 @@ export function ValidatorList(props: Props) {
       const rankA = a.rank ?? 0;
       const rankB = b.rank ?? 0;
       if (rankA !== rankB) return rankA - rankB;
-      return (b.performance ?? 0) - (a.performance ?? 0);
+      return (
+        (b.average_performance.score ?? 0) - (a.average_performance.score ?? 0)
+      );
     });
   }, [data]);
 
@@ -105,6 +113,7 @@ export function ValidatorList(props: Props) {
         <VStack
           w={"full"}
           h={"full"}
+          overflow={"auto"}
           css={{
             "::-webkit-scrollbar": {
               width: "8px",
@@ -159,6 +168,13 @@ export function StayerValidator({
       enabled: !!validator.public_key && inView,
       staleTime: 1 * 60 * 60 * 1000, // 1 hour
     });
+
+  const performance = formatNumber(
+    registryData?.p_score ?? validator.average_performance?.score ?? 0,
+    {
+      decimals: 1,
+    }
+  );
 
   const metricFields = [
     {
@@ -217,17 +233,47 @@ export function StayerValidator({
               {formatAddress(validator.public_key)}
             </Link>
           </Tooltip>
-          {registryData?.p_score && <Tag>{registryData?.p_score}</Tag>}
+          <Tooltip
+            content={
+              <Text fontWeight={"medium"}>Performance: {performance}</Text>
+            }
+          >
+            <Badge color={"primary.solid"} bg={"#F8931F40"} borderRadius={"md"}>
+              <Icon as={RiAwardFill} fill={"primary.solid"} boxSize={"3"} />
+              {performance}
+            </Badge>
+          </Tooltip>
+          <Tooltip
+            content={
+              <Text fontWeight={"medium"}>
+                Status: {validator.is_active ? "Active" : "Inactive"}
+              </Text>
+            }
+          >
+            <Badge
+              color={validator.is_active ? "#94DC18" : "red.500"}
+              bg={validator.is_active ? "#94DC1840" : "red.50040"}
+              borderRadius={"md"}
+            >
+              <Icon
+                as={FiCircle}
+                fill={validator.is_active ? "#94DC18" : "red"}
+                w="2"
+                h="2"
+              />
+              {validator.is_active ? "Active" : "Inactive"}
+            </Badge>
+          </Tooltip>
         </HStack>
         <Text fontSize={"sm"} color={"fg.subtle"} fontWeight={"medium"}>
           {validator.account_info?.info.owner?.name}
         </Text>
-        <HStack gap={"8"}>
+        <HStack gap={8}>
           {metricFields.map((field) => (
             <Tooltip content={`${field.label}`} key={field.label}>
               <HStack key={field.label} gap={"2"} cursor={"pointer"}>
                 <Icon as={field.icon} boxSize={"4"} />
-                <Text>{field.value}</Text>
+                <Text>{formatFields(field.value, field.label)}</Text>
               </HStack>
             </Tooltip>
           ))}
@@ -246,4 +292,18 @@ export function StayerValidator({
       </VStack>
     </HStack>
   );
+}
+
+function formatFields(value: number | string, label: string) {
+  switch (label) {
+    case "Fee":
+      console.log("Formatting fee:", value);
+      return formatPercentage(Number(value), 2, false);
+    case "Era":
+      return formatNumber(value, { decimals: 0 });
+    case "Delegators":
+      return formatNumber(value, { decimals: 0 });
+    default:
+      return value.toString();
+  }
 }

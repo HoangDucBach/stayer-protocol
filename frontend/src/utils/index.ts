@@ -71,6 +71,9 @@ export function formatCompact(
   return numbro(value.toNumber()).format({ average: true, mantissa: decimals });
 }
 
-export function formatPercentage(value: number, decimals: number = 2): string {
+export function formatPercentage(value: number, decimals: number = 2, isFloat: boolean = true): string {
+  if (!isFloat) {
+    return `${value.toFixed(decimals)}%`;
+  }
   return `${(value * 100).toFixed(decimals)}%`;
 }
