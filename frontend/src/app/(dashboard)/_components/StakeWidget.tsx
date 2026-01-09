@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/dialog";
 import { Avatar } from "@/components/ui/avatar";
 import { useConfetti } from "@/hooks/useConfetti";
+import BackgroundVideo from "./BackgroundVideo";
 
 type Props = TabsRootProps;
 
@@ -135,6 +136,11 @@ export function StakeWidget(props: Props) {
           </AnimatePresence>
         </Tabs.Content>
       </AnimatePresence>
+      <Button
+        onClick={(e) => setIsCompletedDialogOpen(!isCompletedDialogOpen)}
+      >
+        Test Completed Transaction Dialog
+      </Button>
       <CompletedTransaction
         transactionHash={""}
         isOpen={isCompletedDialogOpen}
@@ -172,7 +178,8 @@ const CompletedTransaction = ({
     >
       <DialogBackdrop />
       <DialogPositioner>
-        <DialogContent colorPalette="primary" bg="bg" p={20}>
+        <DialogContent colorPalette="primary" p={20}>
+          <BackgroundVideo />
           <DialogHeader justifyContent="center">
             <Text fontSize="3xl" fontWeight="bold">
               Congratulations!
