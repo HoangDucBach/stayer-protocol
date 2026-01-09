@@ -8,6 +8,7 @@ import {
   Args,
   KeyAlgorithm,
   ContractCallBuilder,
+  CLValue,
 } from 'casper-js-sdk';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -18,6 +19,24 @@ export interface ValidatorInfo {
   isActive: boolean;
   totalStake: bigint;
   lastEraReward?: bigint; // Reward in most recent era
+}
+
+export interface PendingDelegation {
+  validator: PublicKey;
+  amount: bigint;
+  era: number;
+}
+
+export interface PendingUndelegation {
+  validator: PublicKey;
+  amount: bigint;
+  era: number;
+}
+
+export interface DelegatorInfo {
+  validator: string;
+  stakedAmount: bigint;
+  bondingPurse: string;
 }
 
 function getErrorMessage(error: unknown): string {
@@ -59,10 +78,8 @@ export class CasperService {
   }
 
   async getCurrentEra(): Promise<number> {
-    const auctionInfo = await this.client.getLatestAuctionInfo();
-    return auctionInfo.auctionState.eraValidators.length > 0
-      ? auctionInfo.auctionState.eraValidators[0].eraID
-      : 0;
+    const status = await this.client.getStatus();
+    return status.lastAddedBlockInfo?.eraID ?? 0;
   }
 
   async getValidators(): Promise<ValidatorInfo[]> {
@@ -169,5 +186,144 @@ export class CasperService {
 
     this.logger.error(`Transaction ${transactionHash} timeout`);
     return false;
+  }
+
+  /**
+   * Get delegator info for keeper account
+   * Returns total delegation amount across all validators
+   *
+   * NOTE: casper-js-sdk v5.x has different API than v2.x
+   * This needs to be implemented based on actual SDK documentation
+   */
+  async getTotalDelegation(): Promise<bigint> {
+    try {
+      const auctionInfo = await this.client.getLatestAuctionInfo();
+      const keeperPublicKeyHex = this.publicKey.toHex();
+
+      let totalDelegation = BigInt(0);
+
+      // Search through all bids to find delegations from keeper
+      for (const bid of auctionInfo.auctionState.bids) {
+        const bidData = bid.bid.unified || bid.bid.validator;
+
+        if (bidData) {
+          // Check if bidData has delegators property
+          const delegators = (bidData as any).delegators;
+          if (Array.isArray(delegators)) {
+            for (const delegator of delegators) {
+              try {
+                const delegatorKey =
+                  delegator.publicKey?.toHex?.() || delegator.publicKey;
+                if (delegatorKey === keeperPublicKeyHex) {
+                  const stakedAmount = BigInt(
+                    delegator.stakedAmount?.toString() || '0',
+                  );
+                  totalDelegation += stakedAmount;
+                  this.logger.debug(
+                    `Found delegation to ${bid.publicKey.toHex()}: ${stakedAmount}`,
+                  );
+                }
+              } catch (err) {
+                // Skip invalid delegator entries
+                continue;
+              }
+            }
+          }
+        }
+      }
+
+      this.logger.log(`Total delegation: ${totalDelegation} motes`);
+      return totalDelegation;
+    } catch (error) {
+      this.logger.error(
+        `Failed to get total delegation: ${getErrorMessage(error)}`,
+      );
+      return BigInt(0);
+    }
+  }
+
+  /**
+   * Delegate CSPR to a validator via auction system contract
+   * Min amount: 500 CSPR (500_000_000_000 motes)
+   * Fixed cost: 2.5 CSPR (2_500_000_000 motes)
+   */
+  async delegate(validatorPublicKey: string, amount: string): Promise<string> {
+    try {
+      const auctionHash =
+        this.configService.get<string>('auctionContractHash') || '';
+
+      if (!auctionHash) {
+        throw new Error('Auction contract hash not configured');
+      }
+
+      const validator = PublicKey.fromHex(validatorPublicKey);
+
+      const args = Args.fromMap({
+        delegator: CLValue.newCLPublicKey(this.publicKey),
+        validator: CLValue.newCLPublicKey(validator),
+        amount: CLValue.newCLUInt512(amount),
+      });
+
+      this.logger.log(
+        `Delegating ${amount} motes to validator ${validatorPublicKey}`,
+      );
+
+      const deployHash = await this.sendDeploy(
+        `hash-${auctionHash}`,
+        'delegate',
+        args,
+        '2500000000', // 2.5 CSPR fixed cost
+      );
+
+      this.logger.log(`Delegation transaction sent: ${deployHash}`);
+      return deployHash;
+    } catch (error) {
+      this.logger.error(`Failed to delegate: ${getErrorMessage(error)}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Undelegate CSPR from a validator via auction system contract
+   * Fixed cost: 2.5 CSPR (2_500_000_000 motes)
+   * Unbonding period: 7 eras (~14 hours on mainnet)
+   */
+  async undelegate(
+    validatorPublicKey: string,
+    amount: string,
+  ): Promise<string> {
+    try {
+      const auctionHash =
+        this.configService.get<string>('auctionContractHash') || '';
+
+      if (!auctionHash) {
+        throw new Error('Auction contract hash not configured');
+      }
+
+      const validator = PublicKey.fromHex(validatorPublicKey);
+
+      const args = Args.fromMap({
+        delegator: CLValue.newCLPublicKey(this.publicKey),
+        validator: CLValue.newCLPublicKey(validator),
+        amount: CLValue.newCLUInt512(amount),
+      });
+
+      this.logger.log(
+        `Undelegating ${amount} motes from validator ${validatorPublicKey}`,
+      );
+
+      const deployHash = await this.sendDeploy(
+        `hash-${auctionHash}`,
+        'undelegate',
+        args,
+        '2500000000', // 2.5 CSPR fixed cost
+      );
+
+      this.logger.log(`Undelegation transaction sent: ${deployHash}`);
+      return deployHash;
+    } catch (error) {
+      this.logger.error(`Failed to undelegate: ${getErrorMessage(error)}`);
+      throw error;
+    }
   }
 }

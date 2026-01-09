@@ -13,6 +13,7 @@ import {
   Text,
   VStack,
 } from "@chakra-ui/react";
+import { motion } from "framer-motion";
 import { RiCoinLine } from "react-icons/ri";
 import { FiClock } from "react-icons/fi";
 import { PiUsersBold } from "react-icons/pi";
@@ -24,6 +25,12 @@ import { Avatar } from "@/components/ui/avatar";
 import { useMemo } from "react";
 import { CASPER_EXPLORER_URL } from "@/configs/constants";
 import { Tooltip } from "@/components/ui/tooltip";
+import { Tag } from "@/components/ui/tag";
+
+const MotionVStack = motion.create(VStack);
+const MotionHeading = motion.create(Heading);
+const MotionText = motion.create(Text);
+const MotionHStack = motion.create(HStack);
 
 interface Props extends StackProps {}
 export function ValidatorList(props: Props) {
@@ -58,44 +65,74 @@ export function ValidatorList(props: Props) {
 
   return (
     <VStack flex={1} h={"full"} {...props}>
-      <VStack w={"full"}>
-        <Heading as="h2" size="4xl" fontWeight={"bold"} w={"full"}>
-          Validators
-        </Heading>
-        <Text color={"fg.subtle"} w={"full"}>
-          Choose your favorite and delegate to earn{" "}
-        </Text>
-      </VStack>
-      <VStack
+      <MotionVStack
         w={"full"}
-        h={"full"}
-        overflow={"auto"}
-        css={{
-          "::-webkit-scrollbar": {
-            width: "8px",
-            background: "transparent",
-          },
-          "::-webkit-scrollbar-thumb": {
-            background: "#888",
-            borderRadius: "8px",
-          },
-          "::-webkit-scrollbar-thumb:hover": {
-            background: "#555",
-          },
-          scrollbarWidth: "thin",
-          scrollbarColor: "#888 transparent",
-        }}
+        initial="hidden"
+        animate="visible"
+        transition={{ staggerChildren: 0.1, delayChildren: 0.2 }}
       >
-        <For each={sortedPerfValidators} fallback={<div>Loading...</div>}>
-          {(validator) => (
-            <StayerValidator
-              key={validator.public_key}
-              validator={validator}
-              onDelegate={handleDelegate}
-            />
-          )}
-        </For>
-      </VStack>
+        <MotionHeading
+          as="h2"
+          size="4xl"
+          fontWeight={"bold"}
+          w={"full"}
+          variants={{
+            hidden: { opacity: 0, y: -20 },
+            visible: { opacity: 1, y: 0 },
+          }}
+          transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+        >
+          Validators
+        </MotionHeading>
+        <MotionText
+          color={"fg.subtle"}
+          w={"full"}
+          variants={{
+            hidden: { opacity: 0, y: -20 },
+            visible: { opacity: 1, y: 0 },
+          }}
+          transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+        >
+          Choose your favorite and delegate to earn{" "}
+        </MotionText>
+      </MotionVStack>
+      <motion.div
+        style={{ width: "100%", height: "100%", overflow: "auto" }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.5, delay: 0.4 }}
+      >
+        <VStack
+          w={"full"}
+          h={"full"}
+          css={{
+            "::-webkit-scrollbar": {
+              width: "8px",
+              background: "transparent",
+            },
+            "::-webkit-scrollbar-thumb": {
+              background: "#888",
+              borderRadius: "8px",
+            },
+            "::-webkit-scrollbar-thumb:hover": {
+              background: "#555",
+            },
+            scrollbarWidth: "thin",
+            scrollbarColor: "#888 transparent",
+          }}
+        >
+          <For each={sortedPerfValidators} fallback={<div>Loading...</div>}>
+            {(validator, index) => (
+              <StayerValidator
+                key={validator.public_key}
+                validator={validator}
+                onDelegate={handleDelegate}
+                index={index}
+              />
+            )}
+          </For>
+        </VStack>
+      </motion.div>
     </VStack>
   );
 }
@@ -103,10 +140,12 @@ export function ValidatorList(props: Props) {
 interface StayerValidatorProps extends StackProps {
   validator: Validator;
   onDelegate?: (validator: Validator) => void;
+  index?: number;
 }
 export function StayerValidator({
   validator,
   onDelegate,
+  index = 0,
   ...rest
 }: StayerValidatorProps) {
   const { ref, inView } = useInView({
@@ -159,24 +198,27 @@ export function StayerValidator({
         }
       />
       <VStack flex={1} align={"start"}>
-        <Tooltip
-          contentProps={{
-            maxW: "fit",
-          }}
-          content={
-            <Text w={"fit"} fontWeight={"medium"}>
-              {validator.public_key}
-            </Text>
-          }
-        >
-          <Link
-            href={`${CASPER_EXPLORER_URL}/validator/${validator.public_key}`}
-            fontSize={"lg"}
-            fontWeight={"medium"}
+        <HStack w={"full"}>
+          <Tooltip
+            contentProps={{
+              maxW: "fit",
+            }}
+            content={
+              <Text w={"fit"} fontWeight={"medium"}>
+                {validator.public_key}
+              </Text>
+            }
           >
-            {formatAddress(validator.public_key)}
-          </Link>
-        </Tooltip>
+            <Link
+              href={`${CASPER_EXPLORER_URL}/validator/${validator.public_key}`}
+              fontSize={"lg"}
+              fontWeight={"medium"}
+            >
+              {formatAddress(validator.public_key)}
+            </Link>
+          </Tooltip>
+          {registryData?.p_score && <Tag>{registryData?.p_score}</Tag>}
+        </HStack>
         <Text fontSize={"sm"} color={"fg.subtle"} fontWeight={"medium"}>
           {validator.account_info?.info.owner?.name}
         </Text>

@@ -31,9 +31,15 @@ export class AppController {
     return { message: 'Reward harvest triggered' };
   }
 
-  @Post('process-withdrawals')
-  async processWithdrawals(): Promise<object> {
-    await this.liquidStakingService.processWithdrawals();
-    return { message: 'Withdrawal processing triggered' };
+  @Post('process-undelegations')
+  async processUndelegations(): Promise<object> {
+    await this.liquidStakingService.processUndelegations();
+    return { message: 'Undelegation processing triggered' };
+  }
+
+  @Post('process-delegations')
+  async processDelegations(): Promise<object> {
+    await this.liquidStakingService.processDelegations();
+    return { message: 'Delegation processing triggered' };
   }
 }

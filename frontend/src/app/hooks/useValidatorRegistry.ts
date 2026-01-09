@@ -23,13 +23,12 @@ export function useGetValidator(
   options?: HookOptions<ValidatorData | null>
 ) {
   return useQuery({
-    queryKey: ["validator-registry", "validator", validatorPublicKey],
+    queryKey: ["validators", validatorPublicKey],
     queryFn: async () => {
-      const { data } = await apiClient.get<ValidatorRegistryResponse>(
-        "/stayer/validator-registry",
-        { params: { pubkey: validatorPublicKey } }
+      const { data } = await apiClient.get<ValidatorData>(
+        `/stayer/validators/${validatorPublicKey}`
       );
-      return data.validator;
+      return data;
     },
     enabled: !!validatorPublicKey,
     staleTime: 5 * 60 * 1000, // 5 minutes
@@ -121,9 +120,7 @@ export function useIsValidValidator(
       return pScore > 0 && isActive && dataAge <= STALE_DATA_ERAS;
     },
     enabled:
-      !!validatorPublicKey &&
-      currentEra > 0 &&
-      validatorData !== undefined,
+      !!validatorPublicKey && currentEra > 0 && validatorData !== undefined,
     staleTime: 5 * 60 * 1000,
     ...options,
   });
