@@ -97,6 +97,8 @@ export class SchedulerService implements OnModuleInit {
       // Note: Withdrawals are processed by users calling claim() directly
       // Keeper only needs to process undelegations
       await this.liquidStakingService.processUndelegations();
+      // Also process unbonding deposits (after 7-era unbonding period)
+      await this.liquidStakingService.processUnbondingDeposits();
     } catch (error) {
       this.logger.error(
         `Scheduled withdrawal processing failed: ${error instanceof Error ? error.message : String(error)}`,

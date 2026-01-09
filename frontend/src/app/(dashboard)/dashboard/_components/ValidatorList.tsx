@@ -238,7 +238,11 @@ export function StayerValidator({
               <Text fontWeight={"medium"}>Performance: {performance}</Text>
             }
           >
-            <Badge color={"primary.solid"} bg={"#F8931F40"} borderRadius={"md"}>
+            <Badge
+              color={"primary.solid"}
+              bg={"primary.solid/25"}
+              borderRadius={"lg"}
+            >
               <Icon as={RiAwardFill} fill={"primary.solid"} boxSize={"3"} />
               {performance}
             </Badge>
@@ -252,7 +256,7 @@ export function StayerValidator({
           >
             <Badge
               color={validator.is_active ? "#94DC18" : "red.500"}
-              bg={validator.is_active ? "#94DC1840" : "red.50040"}
+              bg={validator.is_active ? "#94DC18/25" : "red.500/25"}
               borderRadius={"md"}
             >
               <Icon

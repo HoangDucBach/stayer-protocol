@@ -88,9 +88,7 @@ export class DelegationService {
         return;
       }
 
-      this.logger.log(
-        `Found ${pendingDelegations.length} pending delegations`,
-      );
+      this.logger.log(`Found ${pendingDelegations.length} pending delegations`);
 
       // Step 2: Process each pending delegation
       for (const delegation of pendingDelegations) {
@@ -262,7 +260,9 @@ export class DelegationService {
     transaction.sign(this.privateKey);
 
     const result = await this.client.putTransaction(transaction);
-    this.logger.log(`Delegate transaction sent: ${result.transactionHash.toHex()}`);
+    this.logger.log(
+      `Delegate transaction sent: ${result.transactionHash.toHex()}`,
+    );
 
     return result.transactionHash.toHex();
   }
@@ -408,7 +408,9 @@ export class DelegationService {
     transaction.sign(this.privateKey);
 
     const result = await this.client.putTransaction(transaction);
-    this.logger.log(`Undelegate transaction sent: ${result.transactionHash.toHex()}`);
+    this.logger.log(
+      `Undelegate transaction sent: ${result.transactionHash.toHex()}`,
+    );
 
     return result.transactionHash.toHex();
   }
