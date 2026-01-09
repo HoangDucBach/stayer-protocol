@@ -24,10 +24,12 @@ export async function getActiveContractHash(
   stateRootHash: string,
   packageHash: string
 ): Promise<string> {
+  // Normalize packageHash - remove "hash-" prefix if present
+  const cleanHash = packageHash.replace(/^hash-/, "");
   try {
     const pkgRes = await rpcRequest("state_get_item", {
       state_root_hash: stateRootHash,
-      key: `hash-${packageHash}`,
+      key: `hash-${cleanHash}`,
       path: [],
     });
     const pkg =
@@ -42,7 +44,7 @@ export async function getActiveContractHash(
   } catch {
     // Fallback to package hash
   }
-  return packageHash;
+  return cleanHash;
 }
 
 export async function queryDictionaryState(
@@ -82,7 +84,7 @@ export function getOdraKey(
 ): string {
   const buffer = new Uint8Array(4 + mappingData.length);
   const view = new DataView(buffer.buffer);
-  view.setUint32(0, index, false); // big-endian
+  view.setUint32(0, index, false); // big-endian for Odra
   buffer.set(mappingData, 4);
   return blake2bHex(buffer, undefined, 32);
 }

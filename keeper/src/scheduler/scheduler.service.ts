@@ -94,7 +94,9 @@ export class SchedulerService implements OnModuleInit {
   async handleWithdrawalProcessing() {
     this.logger.log('Executing scheduled withdrawal processing...');
     try {
-      await this.liquidStakingService.processWithdrawals();
+      // Note: Withdrawals are processed by users calling claim() directly
+      // Keeper only needs to process undelegations
+      await this.liquidStakingService.processUndelegations();
     } catch (error) {
       this.logger.error(
         `Scheduled withdrawal processing failed: ${error instanceof Error ? error.message : String(error)}`,
@@ -105,6 +107,9 @@ export class SchedulerService implements OnModuleInit {
   async handleDelegationProcessing() {
     this.logger.log('Executing scheduled delegation processing...');
     try {
+      // Process liquid staking delegations
+      await this.liquidStakingService.processDelegations();
+      // Process old delegation service (if needed)
       await this.delegationService.processDelegations();
       await this.delegationService.processUndelegations();
     } catch (error) {

@@ -4,6 +4,7 @@ import {
   VALIDATOR_REGISTRY_CONTRACT,
 } from "@/configs/constants";
 import { blake2bHex } from "blakejs";
+import { getActiveContractHash, getStateRootHash } from "@/libs/odra";
 
 const RPC_URL = CASPER_NODE_ADDRESS;
 
@@ -68,6 +69,11 @@ export async function GET(
   const pubkey = params.pubkey;
   if (!pubkey)
     return NextResponse.json({ error: "Missing pubkey" }, { status: 400 });
+  const stateRootHash = await getStateRootHash();
+  const activeContractHash = await getActiveContractHash(
+    stateRootHash,
+    VALIDATOR_REGISTRY_CONTRACT
+  );
 
   try {
     const rootRes = await rpcRequest("chain_get_state_root_hash", []);
@@ -75,23 +81,8 @@ export async function GET(
       return NextResponse.json({ error: "Network Error" }, { status: 500 });
     const stateRootHash = rootRes.state_root_hash;
 
-    let activeContractHash = VALIDATOR_REGISTRY_CONTRACT;
-    const pkgRes = await rpcRequest("state_get_item", {
-      state_root_hash: stateRootHash,
-      key: `hash-${VALIDATOR_REGISTRY_CONTRACT}`,
-      path: [],
-    });
-
-    const pkg =
-      pkgRes?.stored_value?.ContractPackage ||
-      pkgRes?.stored_value?.contract_package;
-    if (pkg?.versions?.length) {
-      activeContractHash = pkg.versions[
-        pkg.versions.length - 1
-      ].contract_hash.replace("contract-", "");
-    }
-
     const contractKey = `hash-${activeContractHash}`;
+
     const pubKeyBytes = Buffer.from(pubkey, "hex");
 
     let foundData = null;

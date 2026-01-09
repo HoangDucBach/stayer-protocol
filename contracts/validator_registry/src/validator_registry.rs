@@ -1,4 +1,4 @@
-use odra::casper_types::PublicKey;
+use odra::casper_types::{AsymmetricType, PublicKey};
 use odra::prelude::*;
 
 const MIN_P_AVG: u64 = 10;
@@ -51,6 +51,16 @@ impl ValidatorRegistry {
     ) {
         self.require_keeper();
 
+        if validators_data.is_empty() {
+            self.env().revert(Error::EmptyBatch);
+        }
+
+        let last_era = self.last_update_era.get_or_default();
+
+        if current_era < last_era {
+            self.env().revert(Error::InvalidEra);
+        }
+
         if validators_data.len() as u32 > MAX_VALIDATORS_PER_UPDATE {
             self.env().revert(Error::TooManyValidators);
         }
@@ -59,12 +69,13 @@ impl ValidatorRegistry {
             self.env().revert(Error::InvalidPAvg);
         }
 
-        let last_era = self.last_update_era.get_or_default();
-        if current_era <= last_era {
-            self.env().revert(Error::InvalidEra);
-        }
+        let mut seen_in_batch = odra::prelude::BTreeSet::new();
 
         for validator_update in validators_data.iter() {
+            if !seen_in_batch.insert(validator_update.pubkey.clone()) {
+                self.env().revert(Error::DuplicateValidator);
+            }
+
             if validator_update.fee > 100 {
                 self.env().revert(Error::InvalidFee);
             }
@@ -73,12 +84,17 @@ impl ValidatorRegistry {
                 self.env().revert(Error::InvalidDecayFactor);
             }
 
+            if let Some(existing) = self.validators.get(&validator_update.pubkey) {
+                if existing.updated_era == current_era {
+                    self.env().revert(Error::ValidatorAlreadyUpdated);
+                }
+            }
+
             let p_score = self.calculate_p_score(
                 validator_update.fee,
                 validator_update.is_active,
                 validator_update.decay_factor,
             );
-            
 
             let validator_data = ValidatorData {
                 fee: validator_update.fee,
@@ -88,12 +104,14 @@ impl ValidatorRegistry {
                 updated_era: current_era,
             };
 
-            self.validators
-                .set(&validator_update.pubkey, validator_data);
+            self.validators.set(&validator_update.pubkey, validator_data);
         }
 
         self.network_p_avg.set(p_avg);
-        self.last_update_era.set(current_era);
+
+        if current_era > last_era {
+            self.last_update_era.set(current_era);
+        }
 
         self.env().emit_event(ValidatorsUpdated {
             era: current_era,
@@ -178,6 +196,9 @@ pub enum Error {
     InvalidEra = 5,
     InvalidFee = 6,
     InvalidDecayFactor = 7,
+    DuplicateValidator = 8,
+    EmptyBatch = 9,
+    ValidatorAlreadyUpdated = 10,
 }
 
 #[cfg(test)]
@@ -279,5 +300,203 @@ mod tests {
 
         assert_eq!(registry.get_network_p_avg(), 85);
         assert_eq!(registry.get_last_update_era(), 1);
+    }
+
+    #[test]
+    fn test_multiple_batches_same_era() {
+        let (env, mut registry, _owner, keeper) = setup();
+        env.set_caller(keeper);
+
+        let pubkey1 = create_test_pubkey(1);
+        let pubkey2 = create_test_pubkey(2);
+        let pubkey3 = create_test_pubkey(3);
+
+        registry.update_validators(
+            vec![
+                ValidatorUpdateData {
+                    pubkey: pubkey1.clone(),
+                    fee: 5u64,
+                    is_active: true,
+                    decay_factor: 100u64,
+                },
+                ValidatorUpdateData {
+                    pubkey: pubkey2.clone(),
+                    fee: 10u64,
+                    is_active: true,
+                    decay_factor: 100u64,
+                },
+                ValidatorUpdateData {
+                    pubkey: pubkey3.clone(),
+                    fee: 15u64,
+                    is_active: true,
+                    decay_factor: 95u64,
+                },
+            ],
+            88,
+            1,
+        );
+
+        assert_eq!(registry.get_validator(pubkey1).unwrap().fee, 5);
+        assert_eq!(registry.get_validator(pubkey2).unwrap().fee, 10);
+        assert_eq!(registry.get_validator(pubkey3).unwrap().fee, 15);
+        assert_eq!(registry.get_network_p_avg(), 88);
+        assert_eq!(registry.get_last_update_era(), 1);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_duplicate_validator_in_batch() {
+        let (env, mut registry, _owner, keeper) = setup();
+        env.set_caller(keeper);
+
+        let pubkey = create_test_pubkey(1);
+
+        let validators = vec![
+            ValidatorUpdateData {
+                pubkey: pubkey.clone(),
+                fee: 5u64,
+                is_active: true,
+                decay_factor: 100u64,
+            },
+            ValidatorUpdateData {
+                pubkey: pubkey.clone(),
+                fee: 10u64,
+                is_active: true,
+                decay_factor: 100u64,
+            },
+        ];
+
+        registry.update_validators(validators, 85, 1);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_outdated_era_for_validator() {
+        let (env, mut registry, _owner, keeper) = setup();
+        env.set_caller(keeper);
+
+        let pubkey = create_test_pubkey(1);
+
+        let batch1 = vec![ValidatorUpdateData {
+            pubkey: pubkey.clone(),
+            fee: 5u64,
+            is_active: true,
+            decay_factor: 100u64,
+        }];
+
+        registry.update_validators(batch1, 85, 10);
+
+        let batch2 = vec![ValidatorUpdateData {
+            pubkey: pubkey.clone(),
+            fee: 10u64,
+            is_active: true,
+            decay_factor: 100u64,
+        }];
+
+        registry.update_validators(batch2, 90, 5);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_update_same_validator_same_era_should_fail() {
+        let (env, mut registry, _owner, keeper) = setup();
+        env.set_caller(keeper);
+
+        let pubkey = create_test_pubkey(1);
+
+        let batch1 = vec![ValidatorUpdateData {
+            pubkey: pubkey.clone(),
+            fee: 5u64,
+            is_active: true,
+            decay_factor: 100u64,
+        }];
+
+        registry.update_validators(batch1, 85, 1);
+
+        let batch2 = vec![ValidatorUpdateData {
+            pubkey: pubkey.clone(),
+            fee: 10u64,
+            is_active: true,
+            decay_factor: 90u64,
+        }];
+
+        registry.update_validators(batch2, 90, 1);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_empty_batch() {
+        let (env, mut registry, _owner, keeper) = setup();
+        env.set_caller(keeper);
+
+        let validators: Vec<ValidatorUpdateData> = vec![];
+        registry.update_validators(validators, 85, 1);
+    }
+
+    #[test]
+    fn test_two_batches_different_era() {
+        let (env, mut registry, _owner, keeper) = setup();
+        env.set_caller(keeper);
+
+        let pubkey1 = create_test_pubkey(1);
+        let pubkey2 = create_test_pubkey(2);
+
+        registry.update_validators(
+            vec![
+                ValidatorUpdateData {
+                    pubkey: pubkey1.clone(),
+                    fee: 5u64,
+                    is_active: true,
+                    decay_factor: 100u64,
+                },
+                ValidatorUpdateData {
+                    pubkey: pubkey2.clone(),
+                    fee: 10u64,
+                    is_active: true,
+                    decay_factor: 100u64,
+                },
+            ],
+            85,
+            1,
+        );
+
+        assert_eq!(registry.get_validator(pubkey1).unwrap().fee, 5);
+        assert_eq!(registry.get_validator(pubkey2).unwrap().fee, 10);
+        assert_eq!(registry.get_last_update_era(), 1);
+    }
+
+    #[test]
+    fn test_multiple_era_updates() {
+        let (env, mut registry, _owner, keeper) = setup();
+        env.set_caller(keeper);
+
+        let pubkey1 = create_test_pubkey(1);
+        let pubkey2 = create_test_pubkey(2);
+
+        registry.update_validators(
+            vec![ValidatorUpdateData {
+                pubkey: pubkey1.clone(),
+                fee: 5u64,
+                is_active: true,
+                decay_factor: 100u64,
+            }],
+            85,
+            1,
+        );
+
+        registry.update_validators(
+            vec![ValidatorUpdateData {
+                pubkey: pubkey2.clone(),
+                fee: 10u64,
+                is_active: true,
+                decay_factor: 90u64,
+            }],
+            90,
+            2,
+        );
+
+        assert_eq!(registry.get_validator(pubkey1).unwrap().updated_era, 1);
+        assert_eq!(registry.get_validator(pubkey2).unwrap().updated_era, 2);
+        assert_eq!(registry.get_last_update_era(), 2);
     }
 }
