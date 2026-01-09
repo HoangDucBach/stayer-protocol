@@ -42,4 +42,10 @@ export class AppController {
     await this.liquidStakingService.processDelegations();
     return { message: 'Delegation processing triggered' };
   }
+
+  @Post('process-unbonding-deposits')
+  async processUnbondingDeposits(): Promise<object> {
+    await this.liquidStakingService.processUnbondingDeposits();
+    return { message: 'Unbonding deposit processing triggered' };
+  }
 }
