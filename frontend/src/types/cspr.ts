@@ -30,7 +30,7 @@ export type Validator = {
   delegators_number: number;
   delegators_stake: string;
   delegators_change: number | null;
-  performance: number | null;
+  average_performance: ValidatorPerformance;
   bid_amount?: string;
   reserved_slots?: number;
   minimum_delegation_amount?: string;
