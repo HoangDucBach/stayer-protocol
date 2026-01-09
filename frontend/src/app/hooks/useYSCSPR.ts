@@ -4,6 +4,7 @@ import { useClickRef } from "@make-software/csprclick-ui";
 import {
   useMutation,
   useQuery,
+  useQueryClient,
   UseMutationOptions,
   UseQueryOptions,
 } from "@tanstack/react-query";
@@ -46,6 +47,7 @@ export function useTransfer({
   options,
 }: HooksOptions<string, Error, TransferPayload> = {}) {
   const clickRef = useClickRef();
+  const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({
@@ -87,6 +89,9 @@ export function useTransfer({
 
       return hash;
     },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["yscspr", "balance"] });
+    },
     ...options,
   });
 }
@@ -95,6 +100,7 @@ export function useApprove({
   options,
 }: HooksOptions<string, Error, ApprovePayload> = {}) {
   const clickRef = useClickRef();
+  const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({
@@ -136,11 +142,21 @@ export function useApprove({
 
       return hash;
     },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["yscspr"] });
+    },
     ...options,
   });
 }
 
 // ============== Queries (use apiClient) ==============
+
+interface FungibleTokenOwnership {
+  data: Array<{
+    contract_package_hash: string;
+    balance: string;
+  }>;
+}
 
 export function useBalanceOf(
   owner: string,
@@ -149,11 +165,15 @@ export function useBalanceOf(
   return useQuery({
     queryKey: ["yscspr", "balance", owner],
     queryFn: async () => {
-      const { data } = await apiClient.get<TokenResponse>("/stayer/yscspr", {
-        params: { address: owner },
-      });
-      console.log("YSCPR balance data:", data);
-      return data.balance || "0";
+      const contractHash = YSCSPR_CONTRACT.replace("hash-", "");
+      const { data } = await apiClient.get<FungibleTokenOwnership>(
+        `/casper/accounts/${owner}/ft-token-ownership`
+      );
+
+      const token = data.data?.find(
+        (t) => t.contract_package_hash === contractHash
+      );
+      return token?.balance || "0";
     },
     enabled: !!owner,
     ...options,

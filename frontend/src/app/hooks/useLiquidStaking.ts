@@ -4,6 +4,7 @@ import { useClickRef } from "@make-software/csprclick-ui";
 import {
   useMutation,
   useQuery,
+  useQueryClient,
   UseMutationOptions,
   UseQueryOptions,
 } from "@tanstack/react-query";
@@ -60,6 +61,7 @@ export function useStake({
   options,
 }: HooksOptions<string, Error, StakePayload> = {}) {
   const clickRef = useClickRef();
+  const queryClient = useQueryClient();
 
   const handleStake = async ({
     validatorPublicKey,
@@ -114,6 +116,10 @@ export function useStake({
 
   return useMutation({
     mutationFn: handleStake,
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["liquid-staking"] });
+      queryClient.invalidateQueries({ queryKey: ["yscspr", "balance"] });
+    },
     ...options,
   });
 }
@@ -122,6 +128,7 @@ export function useUnstake({
   options,
 }: HooksOptions<string, Error, UnstakePayload> = {}) {
   const clickRef = useClickRef();
+  const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({
@@ -169,6 +176,10 @@ export function useUnstake({
 
       return hash;
     },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["liquid-staking"] });
+      queryClient.invalidateQueries({ queryKey: ["yscspr", "balance"] });
+    },
     ...options,
   });
 }
@@ -177,6 +188,7 @@ export function useClaim({
   options,
 }: HooksOptions<string, Error, ClaimPayload> = {}) {
   const clickRef = useClickRef();
+  const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({ currentEra, waitForConfirmation }: ClaimPayload) => {
@@ -218,6 +230,9 @@ export function useClaim({
       }
 
       return hash;
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["liquid-staking"] });
     },
     ...options,
   });

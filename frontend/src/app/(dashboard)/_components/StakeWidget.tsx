@@ -208,12 +208,12 @@ const CompletedTransaction = ({
               </motion.div>
 
               <VStack gap={2}>
-                <Text fontSize="xl" fontWeight="semibold" color="green.600">
+                <Text fontSize="xl" fontWeight="semibold" color="success.fg">
                   You're All Set!
                 </Text>
                 <Text fontSize="md" color="fg.muted" textAlign="center">
                   Sit back, relax, and maybe grab a drink — your CSPR is now
-                  staked! You'll start earning ySCSPR rewards automatically.
+                  staked!
                 </Text>
               </VStack>
               <Text fontSize="sm" color="fg.muted" textAlign="center">

@@ -12,6 +12,7 @@ import {
   PublicKey,
   SessionBuilder,
   TransactionWrapper,
+  Key,
 } from "casper-js-sdk";
 import { CASPER_CHAIN_NAME } from "@/configs/constants";
 
@@ -154,10 +155,12 @@ export function buildClaimInnerArgs(currentEra: number): Args {
 }
 
 /**
- * Build inner args for vault deposit (empty - amount sent via attached_value)
+ * Build inner args for vault deposit
  */
-export function buildDepositInnerArgs(): Args {
-  return Args.fromMap({});
+export function buildDepositInnerArgs(amount: string): Args {
+  return Args.fromMap({
+    amount: CLValue.newCLUInt256(amount),
+  });
 }
 
 /**
@@ -209,10 +212,19 @@ export function buildTransferInnerArgs(recipient: string, amount: string): Args 
 
 /**
  * Build inner args for approve function (ERC20-like)
+ * spender must be a Key type (contract package hash)
  */
 export function buildApproveInnerArgs(spender: string, amount: string): Args {
+  // Ensure spender has 'hash-' prefix for Key.newKey()
+  const spenderWithPrefix = spender.startsWith("hash-")
+    ? spender
+    : `hash-${spender}`;
+
+  // Create Key from hash string
+  const spenderKey = Key.newKey(spenderWithPrefix);
+
   return Args.fromMap({
-    spender: CLValue.newCLByteArray(Buffer.from(spender, "hex")),
+    spender: CLValue.newCLKey(spenderKey),
     amount: CLValue.newCLUInt256(amount),
   });
 }

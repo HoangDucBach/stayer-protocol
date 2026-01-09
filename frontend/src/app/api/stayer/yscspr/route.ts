@@ -10,26 +10,42 @@ import {
   parseOdraBool,
 } from "@/libs/odra";
 
-// YSCSPR storage indices (same structure as CUSD)
+// Based on the Rust struct: decimals(0), symbol(1), name(2), total_supply(3), balances(4)
 const YSCSPRFields = {
-  authorized_minters: 1, // Mapping<Address, bool>
-  owner: 2, // Var<Address>
+  balances: 4, 
+  authorized_minters: 6, // 0-5 are Cep18 fields
 } as const;
 
-/**
- * GET /api/stayer/yscspr
- * Query params:
- *   - address: (optional) address to check balance
- *   - check_authorized: (optional) address to check if authorized minter
- *
- * Returns:
- *   - name: Token name
- *   - symbol: Token symbol
- *   - decimals: Token decimals
- *   - total_supply: Total supply
- *   - balance: (if address provided) Balance of address
- *   - is_authorized: (if check_authorized provided) Whether address is authorized
- */
+function parseAddressToBytes(addressStr: string): Buffer | null {
+  try {
+    let tag = 0;
+    let hex = "";
+
+    if (addressStr.startsWith("account-hash-")) {
+      tag = 0;
+      hex = addressStr.replace("account-hash-", "");
+    } else if (addressStr.startsWith("hash-")) {
+      tag = 1;
+      hex = addressStr.replace("hash-", "");
+    } else if (addressStr.length === 64) {
+      tag = 0; 
+      hex = addressStr;
+    } else {
+      return null;
+    }
+
+    const hashBytes = Buffer.from(hex, "hex");
+    if (hashBytes.length !== 32) return null;
+
+    const buffer = Buffer.alloc(33);
+    buffer[0] = tag;
+    hashBytes.copy(buffer, 1);
+    return buffer;
+  } catch {
+    return null;
+  }
+}
+
 export async function GET(request: NextRequest) {
   const address = request.nextUrl.searchParams.get("address");
   const checkAuthorized = request.nextUrl.searchParams.get("check_authorized");
@@ -40,9 +56,11 @@ export async function GET(request: NextRequest) {
       stateRootHash,
       YSCSPR_CONTRACT
     );
-    const contractKey = `hash-${activeContractHash}`;
+    
+    const contractKey = activeContractHash.startsWith("hash-") 
+      ? activeContractHash 
+      : `hash-${activeContractHash}`;
 
-    // Query CEP-18 standard named keys for token metadata
     const queryNamedKey = async (key: string) => {
       try {
         const res = await rpcRequest("state_get_item", {
@@ -56,57 +74,47 @@ export async function GET(request: NextRequest) {
       }
     };
 
-    // Get token metadata from CEP-18 named keys
     const name = (await queryNamedKey("name")) || "Yield Staked CSPR";
     const symbol = (await queryNamedKey("symbol")) || "ySCSPR";
     const decimals = (await queryNamedKey("decimals")) || 9;
     const total_supply = (await queryNamedKey("total_supply")) || "0";
 
-    // Query balance if address provided
-    let balance = null;
+    let balance = "0";
     if (address) {
-      try {
-        // CEP-18 balances are stored in "balances" dictionary
-        const res = await rpcRequest("state_get_dictionary_item", {
-          state_root_hash: stateRootHash,
-          dictionary_identifier: {
-            ContractNamedKey: {
-              key: contractKey,
-              dictionary_name: "balances",
-              dictionary_item_key: address,
-            },
-          },
-        });
-        const balanceHex = res.stored_value?.CLValue?.bytes;
-        balance = balanceHex ? parseOdraU256(balanceHex) : "0";
-      } catch {
-        balance = "0";
+      const addressBytes = parseAddressToBytes(address);
+      
+      if (addressBytes) {
+        const balanceKey = getOdraKey(YSCSPRFields.balances, addressBytes);
+        
+        const balanceHex = await queryDictionaryState(
+          stateRootHash,
+          contractKey,
+          "state", 
+          balanceKey
+        );
+
+        if (balanceHex) {
+          balance = parseOdraU256(balanceHex);
+        }
       }
     }
 
-    // Query authorized status if check_authorized provided
-    let is_authorized = null;
+    let is_authorized = false;
     if (checkAuthorized) {
-      const hashMatch = checkAuthorized.match(
-        /(?:account-hash-|hash-)([a-fA-F0-9]+)/
-      );
-      if (hashMatch) {
-        const addressBytes = Buffer.alloc(33);
-        addressBytes[0] = checkAuthorized.startsWith("account-hash-") ? 0 : 1;
-        Buffer.from(hashMatch[1], "hex").copy(addressBytes, 1);
-
-        const authKey = getOdraKey(
-          YSCSPRFields.authorized_minters,
-          addressBytes
-        );
-        const authHex = await queryDictionaryState(
-          stateRootHash,
-          contractKey,
-          "state",
-          authKey
-        );
-        is_authorized = authHex ? parseOdraBool(authHex) : false;
-      }
+        const addressBytes = parseAddressToBytes(checkAuthorized);
+        if (addressBytes) {
+            const authKey = getOdraKey(
+                YSCSPRFields.authorized_minters,
+                addressBytes
+            );
+            const authHex = await queryDictionaryState(
+                stateRootHash,
+                contractKey,
+                "state",
+                authKey
+            );
+            is_authorized = authHex ? parseOdraBool(authHex) : false;
+        }
     }
 
     return NextResponse.json({
