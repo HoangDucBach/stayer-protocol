@@ -4,6 +4,7 @@ import { useClickRef } from "@make-software/csprclick-ui";
 import {
   useMutation,
   useQuery,
+  useQueryClient,
   UseMutationOptions,
   UseQueryOptions,
 } from "@tanstack/react-query";
@@ -24,7 +25,9 @@ import {
   buildRepayInnerArgs,
   buildWithdrawInnerArgs,
   buildLiquidateInnerArgs,
+  buildApproveInnerArgs,
 } from "@/libs/odra-proxy";
+import { YSCSPR_CONTRACT } from "@/configs/constants";
 import type {
   Position,
   VaultParams,
@@ -60,6 +63,7 @@ export function useDeposit({
   options,
 }: HooksOptions<string, Error, DepositPayload> = {}) {
   const clickRef = useClickRef();
+  const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({ amount, waitForConfirmation }: DepositPayload) => {
@@ -104,6 +108,105 @@ export function useDeposit({
 
       return hash;
     },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["stayer-vault"] });
+      queryClient.invalidateQueries({ queryKey: ["yscspr", "balance"] });
+    },
+    ...options,
+  });
+}
+
+/**
+ * Combined hook that handles both approve and deposit in sequence
+ * Step 1: Approve ySCSPR for StayerVault
+ * Step 2: Deposit ySCSPR into StayerVault
+ */
+export function useDepositWithApproval({
+  options,
+}: HooksOptions<string, Error, DepositPayload> = {}) {
+  const clickRef = useClickRef();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ amount, waitForConfirmation }: DepositPayload) => {
+      if (!clickRef) throw new Error("Click ref not initialized");
+
+      const activeAccount = clickRef.currentAccount;
+      if (!activeAccount) throw new Error("No active account");
+
+      const senderPublicKey = PublicKey.fromHex(activeAccount.public_key);
+      const amountInMotes = new BigNumber(amount).multipliedBy(1e9).toString();
+
+      // Step 1: Approve ySCSPR for StayerVault
+      const vaultPackageHash = STAYER_VAULT_CONTRACT.replace("hash-", "");
+      const approveInnerArgs = buildApproveInnerArgs(vaultPackageHash, amountInMotes);
+
+      const approveTransactionJson = await buildOdraProxyTransaction({
+        senderPublicKey,
+        packageHash: YSCSPR_CONTRACT,
+        entryPoint: "approve",
+        innerArgs: approveInnerArgs,
+        attachedValue: "0",
+        paymentAmount: 3_000_000_000,
+      });
+
+      const approveResult = await clickRef.send(
+        approveTransactionJson,
+        activeAccount.public_key
+      );
+      if (!approveResult) throw new Error("Approve transaction failed");
+      if (approveResult.cancelled) throw new Error("Approve cancelled by user");
+
+      const approveHash = approveResult.deployHash || approveResult.transactionHash || "";
+
+      // Wait for approve to complete
+      if (approveHash) {
+        const approveTxResult = await waitForDeployOrTransaction(approveHash);
+        if (!approveTxResult.executionResult.success) {
+          throw new Error(
+            approveTxResult.executionResult.errorMessage ||
+              "Approve transaction failed"
+          );
+        }
+      }
+
+      // Step 2: Deposit ySCSPR into StayerVault
+      const depositInnerArgs = buildDepositInnerArgs(amountInMotes);
+
+      const depositTransactionJson = await buildOdraProxyTransaction({
+        senderPublicKey,
+        packageHash: STAYER_VAULT_CONTRACT,
+        entryPoint: "deposit",
+        innerArgs: depositInnerArgs,
+        attachedValue: "0",
+        paymentAmount: DEFAULT_PAYMENT_GAS,
+      });
+
+      const depositResult = await clickRef.send(
+        depositTransactionJson,
+        activeAccount.public_key
+      );
+      if (!depositResult) throw new Error("Deposit transaction failed");
+      if (depositResult.cancelled) throw new Error("Deposit cancelled by user");
+
+      const depositHash = depositResult.deployHash || depositResult.transactionHash || "";
+
+      if (waitForConfirmation && depositHash) {
+        const depositTxResult = await waitForDeployOrTransaction(depositHash);
+        if (!depositTxResult.executionResult.success) {
+          throw new Error(
+            depositTxResult.executionResult.errorMessage ||
+              "Deposit transaction failed"
+          );
+        }
+      }
+
+      return depositHash;
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["stayer-vault"] });
+      queryClient.invalidateQueries({ queryKey: ["yscspr", "balance"] });
+    },
     ...options,
   });
 }
@@ -112,6 +215,7 @@ export function useBorrow({
   options,
 }: HooksOptions<string, Error, BorrowPayload> = {}) {
   const clickRef = useClickRef();
+  const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({ cusdAmount, waitForConfirmation }: BorrowPayload) => {
@@ -122,7 +226,9 @@ export function useBorrow({
 
       const senderPublicKey = PublicKey.fromHex(activeAccount.public_key);
 
-      const innerArgs = buildBorrowInnerArgs(cusdAmount);
+      // Convert cUSD amount to motes (multiply by 10^9)
+      const amountInMotes = new BigNumber(cusdAmount).multipliedBy(1e9).toFixed(0);
+      const innerArgs = buildBorrowInnerArgs(amountInMotes);
 
       const transactionJson = await buildOdraProxyTransaction({
         senderPublicKey,
@@ -154,6 +260,10 @@ export function useBorrow({
 
       return hash;
     },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["stayer-vault"] });
+      queryClient.invalidateQueries({ queryKey: ["cusd", "balance"] });
+    },
     ...options,
   });
 }
@@ -162,6 +272,7 @@ export function useRepay({
   options,
 }: HooksOptions<string, Error, RepayPayload> = {}) {
   const clickRef = useClickRef();
+  const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({ cusdAmount, waitForConfirmation }: RepayPayload) => {
@@ -172,7 +283,9 @@ export function useRepay({
 
       const senderPublicKey = PublicKey.fromHex(activeAccount.public_key);
 
-      const innerArgs = buildRepayInnerArgs(cusdAmount);
+      // Convert cUSD amount to motes (multiply by 10^9)
+      const amountInMotes = new BigNumber(cusdAmount).multipliedBy(1e9).toFixed(0);
+      const innerArgs = buildRepayInnerArgs(amountInMotes);
 
       const transactionJson = await buildOdraProxyTransaction({
         senderPublicKey,
@@ -204,6 +317,10 @@ export function useRepay({
 
       return hash;
     },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["stayer-vault"] });
+      queryClient.invalidateQueries({ queryKey: ["cusd", "balance"] });
+    },
     ...options,
   });
 }
@@ -212,6 +329,7 @@ export function useWithdraw({
   options,
 }: HooksOptions<string, Error, WithdrawPayload> = {}) {
   const clickRef = useClickRef();
+  const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({
@@ -225,7 +343,9 @@ export function useWithdraw({
 
       const senderPublicKey = PublicKey.fromHex(activeAccount.public_key);
 
-      const innerArgs = buildWithdrawInnerArgs(collateralAmount);
+      // Convert ySCSPR amount to motes (multiply by 10^9)
+      const amountInMotes = new BigNumber(collateralAmount).multipliedBy(1e9).toFixed(0);
+      const innerArgs = buildWithdrawInnerArgs(amountInMotes);
 
       const transactionJson = await buildOdraProxyTransaction({
         senderPublicKey,
@@ -257,6 +377,10 @@ export function useWithdraw({
 
       return hash;
     },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["stayer-vault"] });
+      queryClient.invalidateQueries({ queryKey: ["yscspr", "balance"] });
+    },
     ...options,
   });
 }
@@ -265,6 +389,7 @@ export function useLiquidate({
   options,
 }: HooksOptions<string, Error, LiquidatePayload> = {}) {
   const clickRef = useClickRef();
+  const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({
@@ -279,7 +404,9 @@ export function useLiquidate({
 
       const senderPublicKey = PublicKey.fromHex(activeAccount.public_key);
 
-      const innerArgs = buildLiquidateInnerArgs(userAddress, debtToCover);
+      // Convert cUSD debtToCover to motes (multiply by 10^9)
+      const debtInMotes = new BigNumber(debtToCover).multipliedBy(1e9).toFixed(0);
+      const innerArgs = buildLiquidateInnerArgs(userAddress, debtInMotes);
 
       const transactionJson = await buildOdraProxyTransaction({
         senderPublicKey,
@@ -309,6 +436,11 @@ export function useLiquidate({
       }
 
       return hash;
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["stayer-vault"] });
+      queryClient.invalidateQueries({ queryKey: ["cusd", "balance"] });
+      queryClient.invalidateQueries({ queryKey: ["yscspr", "balance"] });
     },
     ...options,
   });

@@ -1,10 +1,12 @@
-import { CASPER_NODE_ADDRESS } from "@/configs/constants";
 import { HttpHandler, RpcClient } from "casper-js-sdk";
 
-const rpcHandler = new HttpHandler(CASPER_NODE_ADDRESS);
-rpcHandler.setCustomHeaders({
-  Authorization: process.env.CASPER_API_KEY!,
-});
+// Use local RPC proxy to handle authentication server-side
+const RPC_PROXY_URL =
+  typeof window !== "undefined"
+    ? `${window.location.origin}/api/rpc`
+    : "http://localhost:3000/api/rpc";
+
+const rpcHandler = new HttpHandler(RPC_PROXY_URL);
 
 export const rpcClient = new RpcClient(rpcHandler);
 

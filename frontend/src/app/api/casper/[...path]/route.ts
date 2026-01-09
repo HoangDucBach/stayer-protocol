@@ -1,6 +1,8 @@
 import { NextRequest } from "next/server";
 
-const BASE = process.env.CASPER_API_URL || "https://api.testnet.cspr.live";
+// Use cspr.cloud API for better token ownership support
+const BASE = "https://api.testnet.cspr.cloud";
+const API_KEY = process.env.CASPER_API_KEY;
 
 export async function GET(
   req: NextRequest,
@@ -11,10 +13,17 @@ export async function GET(
 
   const targetUrl = `${BASE}/${path}${search}`;
 
+  const headers: HeadersInit = {
+    Accept: "application/json",
+  };
+
+  // Add authorization header if API key is available
+  if (API_KEY) {
+    headers["Authorization"] = API_KEY;
+  }
+
   const res = await fetch(targetUrl, {
-    headers: {
-      Accept: "application/json",
-    },
+    headers,
     cache: "no-store",
   });
 
