@@ -136,11 +136,6 @@ export function StakeWidget(props: Props) {
           </AnimatePresence>
         </Tabs.Content>
       </AnimatePresence>
-      <Button
-        onClick={(e) => setIsCompletedDialogOpen(!isCompletedDialogOpen)}
-      >
-        Test Completed Transaction Dialog
-      </Button>
       <CompletedTransaction
         transactionHash={""}
         isOpen={isCompletedDialogOpen}
