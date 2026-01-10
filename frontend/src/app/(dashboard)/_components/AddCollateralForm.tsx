@@ -21,9 +21,9 @@ import {
   useGetPosition,
   useGetVaultParams,
   useDepositWithApproval,
-} from "@/app/hooks/useStayerVault";
-import { useBalanceOf as useYSCSPRBalance } from "@/app/hooks/useYSCSPR";
-import { useGetPrice } from "@/app/hooks/usePriceOracle";
+} from "@/app/(dashboard)/hooks/useStayerVault";
+import { useBalanceOf as useYSCSPRBalance } from "@/app/(dashboard)/hooks/useYSCSPR";
+import { useGetPrice } from "@/app/(dashboard)/hooks/usePriceOracle";
 import BigNumber from "bignumber.js";
 import { toaster } from "@/components/ui/toaster";
 

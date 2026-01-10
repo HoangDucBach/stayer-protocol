@@ -1,9 +1,7 @@
 import { blake2bHex } from "blakejs";
 import { CASPER_NODE_ADDRESS } from "@/configs/constants";
 
-// ============== RPC Client ==============
-
-export async function rpcRequest(method: string, params: any) {
+export async function rpcRequest(method: string, params: unknown) {
   const response = await fetch(CASPER_NODE_ADDRESS, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -24,7 +22,6 @@ export async function getActiveContractHash(
   stateRootHash: string,
   packageHash: string
 ): Promise<string> {
-  // Normalize packageHash - remove "hash-" prefix if present
   const cleanHash = packageHash.replace(/^hash-/, "");
   try {
     const pkgRes = await rpcRequest("state_get_item", {
@@ -42,7 +39,7 @@ export async function getActiveContractHash(
       );
     }
   } catch {
-    // Fallback to package hash
+    /* fallback to package hash */
   }
   return cleanHash;
 }
@@ -72,33 +69,59 @@ export async function queryDictionaryState(
   }
 }
 
-// ============== Odra Key Generation ==============
-
-/**
- * Generate Odra storage key for a given field index and optional mapping data
- * Odra stores state in a dictionary called "state" with keys derived from field index
- */
 export function getOdraKey(
   index: number,
   mappingData: Uint8Array = new Uint8Array([])
 ): string {
   const buffer = new Uint8Array(4 + mappingData.length);
   const view = new DataView(buffer.buffer);
-  view.setUint32(0, index, false); // big-endian for Odra
+  view.setUint32(0, index, false);
   buffer.set(mappingData, 4);
   return blake2bHex(buffer, undefined, 32);
 }
 
-// ============== Odra Value Parsers ==============
+class BufferReader {
+  private cursor = 4;
+  constructor(private buf: Buffer) {}
 
-/**
- * Parse a u64 value from Odra CLValue hex
- * Format: 8 bytes length prefix (LE) + 8 bytes u64 (LE)
- */
+  readU64(): number {
+    const val = Number(this.buf.readBigUInt64LE(this.cursor));
+    this.cursor += 8;
+    return val;
+  }
+
+  readBool(): boolean {
+    const val = this.buf[this.cursor] !== 0;
+    this.cursor += 1;
+    return val;
+  }
+
+  readU256(): string {
+    const numBytes = this.buf[this.cursor];
+    this.cursor += 1;
+    if (numBytes === 0) return "0";
+    let val = BigInt(0);
+    for (let i = 0; i < numBytes; i++) {
+      val += BigInt(this.buf[this.cursor + i]) * BigInt(256) ** BigInt(i);
+    }
+    this.cursor += numBytes;
+    return val.toString();
+  }
+
+  readAddress(): string {
+    const tag = this.buf[this.cursor];
+    this.cursor += 1;
+    const hashBytes = this.buf.slice(this.cursor, this.cursor + 32);
+    this.cursor += 32;
+    return tag === 0
+      ? `account-hash-${hashBytes.toString("hex")}`
+      : `hash-${hashBytes.toString("hex")}`;
+  }
+}
+
 export function parseOdraU64(hex: string): number {
   try {
     if (!hex || hex.length < 16) return 0;
-    // Skip first 8 chars (4 bytes length prefix), read next 16 chars (8 bytes u64)
     const dataHex = hex.substring(8, 24);
     const buffer = Buffer.from(dataHex, "hex");
     return Number(buffer.readBigUInt64LE(0));
@@ -107,39 +130,20 @@ export function parseOdraU64(hex: string): number {
   }
 }
 
-/**
- * Parse a U256 value from Odra CLValue hex
- */
 export function parseOdraU256(hex: string): string {
   try {
     if (!hex || hex.length < 10) return "0";
-    // First byte after length is the actual byte length of the number
-    const buf = Buffer.from(hex, "hex");
-    const lenPrefix = buf.readUInt32LE(0);
-    const numBytes = buf[4];
-    if (numBytes === 0) return "0";
-
-    // Read the bytes in little-endian
-    let result = BigInt(0);
-    for (let i = 0; i < numBytes; i++) {
-      result += BigInt(buf[5 + i]) * BigInt(256) ** BigInt(i);
-    }
-    return result.toString();
+    const reader = new BufferReader(Buffer.from(hex, "hex"));
+    return reader.readU256();
   } catch {
     return "0";
   }
 }
 
-/**
- * Parse a U512 value from Odra CLValue hex (same format as U256)
- */
 export function parseOdraU512(hex: string): string {
   return parseOdraU256(hex);
 }
 
-/**
- * Parse a boolean value from Odra CLValue hex
- */
 export function parseOdraBool(hex: string): boolean {
   try {
     if (!hex || hex.length < 10) return false;
@@ -150,29 +154,16 @@ export function parseOdraBool(hex: string): boolean {
   }
 }
 
-/**
- * Parse an Address from Odra CLValue hex
- * Address format: 1 byte tag (00=account, 01=contract) + 32 bytes hash
- */
 export function parseOdraAddress(hex: string): string | null {
   try {
     if (!hex || hex.length < 74) return null;
-    const buf = Buffer.from(hex, "hex");
-    const tag = buf[4];
-    const hashBytes = buf.slice(5, 37);
-    const hashHex = hashBytes.toString("hex");
-    return tag === 0 ? `account-hash-${hashHex}` : `hash-${hashHex}`;
+    const reader = new BufferReader(Buffer.from(hex, "hex"));
+    return reader.readAddress();
   } catch {
     return null;
   }
 }
 
-// ============== Contract-Specific Parsers ==============
-
-/**
- * ValidatorData struct from ValidatorRegistry
- * Fields: fee(u64), is_active(bool), decay_factor(u64), p_score(u64), updated_era(u64)
- */
 export interface ValidatorData {
   fee: number;
   is_active: boolean;
@@ -183,37 +174,19 @@ export interface ValidatorData {
 
 export function parseValidatorData(hex: string): ValidatorData | null {
   try {
-    const buf = Buffer.from(hex, "hex");
-    let cursor = 4; // Skip length prefix
-
-    const readU64 = () => {
-      const val = Number(buf.readBigUInt64LE(cursor));
-      cursor += 8;
-      return val;
+    const reader = new BufferReader(Buffer.from(hex, "hex"));
+    return {
+      fee: reader.readU64(),
+      is_active: reader.readBool(),
+      decay_factor: reader.readU64(),
+      p_score: reader.readU64(),
+      updated_era: reader.readU64(),
     };
-
-    const readBool = () => {
-      const val = buf[cursor] !== 0;
-      cursor += 1;
-      return val;
-    };
-
-    const fee = readU64();
-    const is_active = readBool();
-    const decay_factor = readU64();
-    const p_score = readU64();
-    const updated_era = readU64();
-
-    return { fee, is_active, decay_factor, p_score, updated_era };
   } catch {
     return null;
   }
 }
 
-/**
- * PriceData struct from PriceOracle
- * Fields: price(U256), updated_at(u64), round_id(u64)
- */
 export interface PriceData {
   price: string;
   updated_at: number;
@@ -222,33 +195,17 @@ export interface PriceData {
 
 export function parsePriceData(hex: string): PriceData | null {
   try {
-    const buf = Buffer.from(hex, "hex");
-    let cursor = 4; // Skip length prefix
-
-    // Parse U256 - first byte is length of number
-    const numBytes = buf[cursor];
-    cursor += 1;
-    let price = BigInt(0);
-    for (let i = 0; i < numBytes; i++) {
-      price += BigInt(buf[cursor + i]) * BigInt(256) ** BigInt(i);
-    }
-    cursor += numBytes;
-
-    // Parse u64s
-    const updated_at = Number(buf.readBigUInt64LE(cursor));
-    cursor += 8;
-    const round_id = Number(buf.readBigUInt64LE(cursor));
-
-    return { price: price.toString(), updated_at, round_id };
+    const reader = new BufferReader(Buffer.from(hex, "hex"));
+    return {
+      price: reader.readU256(),
+      updated_at: reader.readU64(),
+      round_id: reader.readU64(),
+    };
   } catch {
     return null;
   }
 }
 
-/**
- * VaultParams struct from StayerVault
- * Fields: ltv(u64), liq_threshold(u64), liq_penalty(u64), stability_fee(u64), min_collateral(U256)
- */
 export interface VaultParams {
   ltv: number;
   liq_threshold: number;
@@ -259,44 +216,19 @@ export interface VaultParams {
 
 export function parseVaultParams(hex: string): VaultParams | null {
   try {
-    const buf = Buffer.from(hex, "hex");
-    let cursor = 4;
-
-    const readU64 = () => {
-      const val = Number(buf.readBigUInt64LE(cursor));
-      cursor += 8;
-      return val;
-    };
-
-    const ltv = readU64();
-    const liq_threshold = readU64();
-    const liq_penalty = readU64();
-    const stability_fee = readU64();
-
-    // Parse U256 min_collateral
-    const numBytes = buf[cursor];
-    cursor += 1;
-    let min_collateral = BigInt(0);
-    for (let i = 0; i < numBytes; i++) {
-      min_collateral += BigInt(buf[cursor + i]) * BigInt(256) ** BigInt(i);
-    }
-
+    const reader = new BufferReader(Buffer.from(hex, "hex"));
     return {
-      ltv,
-      liq_threshold,
-      liq_penalty,
-      stability_fee,
-      min_collateral: min_collateral.toString(),
+      ltv: reader.readU64(),
+      liq_threshold: reader.readU64(),
+      liq_penalty: reader.readU64(),
+      stability_fee: reader.readU64(),
+      min_collateral: reader.readU256(),
     };
   } catch {
     return null;
   }
 }
 
-/**
- * Position struct from StayerVault
- * Fields: owner(Address), collateral(U256), debt(U256), entry_price(U256), opened_at(u64)
- */
 export interface Position {
   owner: string | null;
   collateral: string;
@@ -307,46 +239,19 @@ export interface Position {
 
 export function parsePosition(hex: string): Position | null {
   try {
-    const buf = Buffer.from(hex, "hex");
-    let cursor = 4;
-
-    // Parse Address (1 byte tag + 32 bytes hash)
-    const tag = buf[cursor];
-    cursor += 1;
-    const hashBytes = buf.slice(cursor, cursor + 32);
-    cursor += 32;
-    const owner =
-      tag === 0
-        ? `account-hash-${hashBytes.toString("hex")}`
-        : `hash-${hashBytes.toString("hex")}`;
-
-    // Parse U256 helper
-    const parseU256 = () => {
-      const numBytes = buf[cursor];
-      cursor += 1;
-      let val = BigInt(0);
-      for (let i = 0; i < numBytes; i++) {
-        val += BigInt(buf[cursor + i]) * BigInt(256) ** BigInt(i);
-      }
-      cursor += numBytes;
-      return val.toString();
+    const reader = new BufferReader(Buffer.from(hex, "hex"));
+    return {
+      owner: reader.readAddress(),
+      collateral: reader.readU256(),
+      debt: reader.readU256(),
+      entry_price: reader.readU256(),
+      opened_at: reader.readU64(),
     };
-
-    const collateral = parseU256();
-    const debt = parseU256();
-    const entry_price = parseU256();
-    const opened_at = Number(buf.readBigUInt64LE(cursor));
-
-    return { owner, collateral, debt, entry_price, opened_at };
   } catch {
     return null;
   }
 }
 
-/**
- * WithdrawalRequest struct from LiquidStaking
- * Fields: user(Address), amount(U512), unlock_era(u64), status(enum)
- */
 export interface WithdrawalRequest {
   user: string | null;
   amount: string;
@@ -356,93 +261,62 @@ export interface WithdrawalRequest {
 
 export function parseWithdrawalRequest(hex: string): WithdrawalRequest | null {
   try {
-    const buf = Buffer.from(hex, "hex");
-    let cursor = 4;
-
-    // Parse Address
-    const tag = buf[cursor];
-    cursor += 1;
-    const hashBytes = buf.slice(cursor, cursor + 32);
-    cursor += 32;
-    const user =
-      tag === 0
-        ? `account-hash-${hashBytes.toString("hex")}`
-        : `hash-${hashBytes.toString("hex")}`;
-
-    // Parse U512 (same format as U256)
-    const numBytes = buf[cursor];
-    cursor += 1;
-    let amount = BigInt(0);
-    for (let i = 0; i < numBytes; i++) {
-      amount += BigInt(buf[cursor + i]) * BigInt(256) ** BigInt(i);
-    }
-    cursor += numBytes;
-
-    const unlock_era = Number(buf.readBigUInt64LE(cursor));
-    cursor += 8;
-
-    // Parse enum (1 byte)
-    const statusByte = buf[cursor];
-    const status = statusByte === 0 ? "Pending" : "Claimed";
-
-    return { user, amount: amount.toString(), unlock_era, status };
+    const reader = new BufferReader(Buffer.from(hex, "hex"));
+    const user = reader.readAddress();
+    const amount = reader.readU256();
+    const unlock_era = reader.readU64();
+    const status = reader.readBool() ? "Claimed" : "Pending";
+    return { user, amount, unlock_era, status };
   } catch {
     return null;
   }
 }
 
-// ============== Contract Field Indices ==============
-
-/**
- * Odra stores fields in order they appear in struct definition.
- * These indices are used with getOdraKey() to generate dictionary keys.
- */
-
 export const ValidatorRegistryFields = {
-  validators: 0, // Mapping<PublicKey, ValidatorData>
-  network_p_avg: 1, // Var<u64>
-  last_update_era: 2, // Var<u64>
-  keeper: 3, // Var<Address>
-  owner: 4, // Var<Address>
+  validators: 0,
+  network_p_avg: 1,
+  last_update_era: 2,
+  keeper: 3,
+  owner: 4,
 } as const;
 
 export const PriceOracleFields = {
-  price_data: 0, // Var<PriceData>
-  max_age: 1, // Var<u64>
-  styks_oracle: 2, // Var<Address>
-  updaters: 3, // Mapping<Address, bool>
-  owner: 4, // Var<Address>
-  fallback_price: 5, // Var<U256>
-  use_fallback: 6, // Var<bool>
+  price_data: 0,
+  max_age: 1,
+  styks_oracle: 2,
+  updaters: 3,
+  owner: 4,
+  fallback_price: 5,
+  use_fallback: 6,
 } as const;
 
 export const LiquidStakingFields = {
-  validator_registry: 0, // External
-  yscspr_token: 1, // External
-  auction_contract: 2, // External
-  owner: 3, // Var<Address>
-  keeper: 4, // Var<Address>
-  user_stakes: 5, // Mapping<(Address, PublicKey), U512>
-  validator_total_stake: 6, // Mapping<PublicKey, U512>
-  total_staked: 7, // Var<U512>
-  total_pending_withdrawal: 8, // Var<U512>
-  withdrawal_requests: 9, // Mapping<u64, WithdrawalRequest>
-  user_pending_withdrawals: 10, // Mapping<Address, Vec<u64>>
-  next_request_id: 11, // Var<u64>
-  last_harvest_era: 12, // Var<u64>
-  cumulative_rewards: 13, // Var<U512>
-  treasury_rewards: 14, // Var<U512>
+  validator_registry: 0,
+  yscspr_token: 1,
+  auction_contract: 2,
+  owner: 3,
+  keeper: 4,
+  user_stakes: 5,
+  validator_total_stake: 6,
+  total_staked: 7,
+  total_pending_withdrawal: 8,
+  withdrawal_requests: 9,
+  user_pending_withdrawals: 10,
+  next_request_id: 11,
+  last_harvest_era: 12,
+  cumulative_rewards: 13,
+  treasury_rewards: 14,
 } as const;
 
 export const StayerVaultFields = {
-  total_collateral: 0, // Var<U256>
-  total_debt: 1, // Var<U256>
-  positions: 2, // Mapping<Address, Position>
-  params: 3, // Var<VaultParams>
-  oracle: 4, // Var<Address>
-  cusd_token: 5, // Var<Address>
-  yscspr_token: 6, // Var<Address>
-  liquid_staking: 7, // Var<Address>
-  owner: 8, // Var<Address>
-  paused: 9, // Var<bool>
+  total_collateral: 0,
+  total_debt: 1,
+  positions: 2,
+  params: 3,
+  oracle: 4,
+  cusd_token: 5,
+  yscspr_token: 6,
+  liquid_staking: 7,
+  owner: 8,
+  paused: 9,
 } as const;

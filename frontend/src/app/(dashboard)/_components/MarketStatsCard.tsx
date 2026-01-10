@@ -1,5 +1,5 @@
 import { Box, BoxProps, HStack, Text, VStack } from "@chakra-ui/react";
-import { useGetVaultParams, useGetTotalDebt } from "@/app/hooks/useStayerVault";
+import { useGetVaultParams, useGetTotalDebt } from "@/app/(dashboard)/hooks/useStayerVault";
 import { useMemo } from "react";
 import BigNumber from "bignumber.js";
 import { formatCurrency, formatPercentage } from "@/utils";

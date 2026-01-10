@@ -1,6 +1,6 @@
 "use client";
-import { useStake } from "@/app/hooks/useLiquidStaking";
-import { useGetNetworkPAvg } from "@/app/hooks/useValidatorRegistry";
+import { useStake } from "@/app/(dashboard)/hooks/useLiquidStaking";
+import { useGetNetworkPAvg } from "@/app/(dashboard)/hooks/useValidatorRegistry";
 import { Box, Heading, StackProps, Text, VStack } from "@chakra-ui/react";
 import { motion } from "framer-motion";
 import { useEffect } from "react";

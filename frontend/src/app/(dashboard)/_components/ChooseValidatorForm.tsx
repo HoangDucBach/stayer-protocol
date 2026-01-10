@@ -20,8 +20,8 @@ import { HiArrowDown, HiArrowRight } from "react-icons/hi";
 import {
   useGetValidator,
   useGetNetworkPAvg,
-} from "@/app/hooks/useValidatorRegistry";
-import { useGetValidators, useGetCurrentEra } from "@/app/hooks/useCasper";
+} from "@/app/(dashboard)/hooks/useValidatorRegistry";
+import { useGetValidators, useGetCurrentEra } from "@/app/(dashboard)/hooks/useCasper";
 import { formatAddress } from "@/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { Field } from "@/components/ui/field";
