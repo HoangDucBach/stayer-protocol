@@ -19,12 +19,12 @@ import { InfoLine } from "./InfoLine";
 import { FormCard } from "./FormCard";
 import { HiArrowLeft } from "react-icons/hi";
 import { formatCompact, formatAddress } from "@/utils";
-import { useGetAccount, useGetCurrentEra } from "@/app/hooks/useCasper";
+import { useGetAccount, useGetCurrentEra } from "@/app/(dashboard)/hooks/useCasper";
 import {
   useGetValidator,
   useGetNetworkPAvg,
-} from "@/app/hooks/useValidatorRegistry";
-import { useStake, useGetExchangeRate } from "@/app/hooks/useLiquidStaking";
+} from "@/app/(dashboard)/hooks/useValidatorRegistry";
+import { useStake, useGetExchangeRate } from "@/app/(dashboard)/hooks/useLiquidStaking";
 import { useClickRef } from "@make-software/csprclick-ui";
 import BigNumber from "bignumber.js";
 import { motion } from "framer-motion";

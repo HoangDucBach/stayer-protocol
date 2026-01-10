@@ -1,9 +1,27 @@
 "use client";
 
-import { HStack } from "@chakra-ui/react";
+import { HStack, Skeleton } from "@chakra-ui/react";
 import { motion } from "framer-motion";
-import { ValidatorList } from "./_components/ValidatorList";
-import { MarketOverviewBoard } from "./_components/MarketOverviewBoard";
+import dynamic from "next/dynamic";
+
+const ValidatorList = dynamic(
+  () => import("./_components/ValidatorList").then((mod) => mod.ValidatorList),
+  {
+    ssr: false,
+    loading: () => <Skeleton height="full" flex={1} borderRadius="3xl" />,
+  }
+);
+
+const MarketOverviewBoard = dynamic(
+  () =>
+    import("./_components/MarketOverviewBoard").then(
+      (mod) => mod.MarketOverviewBoard
+    ),
+  {
+    ssr: false,
+    loading: () => <Skeleton height="full" flex={1} borderRadius="3xl" />,
+  }
+);
 
 const MotionHStack = motion.create(HStack);
 

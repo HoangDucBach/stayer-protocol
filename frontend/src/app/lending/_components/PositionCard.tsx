@@ -1,14 +1,10 @@
 "use client";
 
-import { formatPercentage } from "@/utils";
 import {
   Box,
-  Button,
   Heading,
   HStack,
   Image,
-  Input,
-  NumberInput,
   StackProps,
   Text,
   VStack,
@@ -17,51 +13,57 @@ import { useClickRef } from "@make-software/csprclick-ui";
 import {
   useGetPosition,
   useGetVaultParams,
-  useDeposit,
-} from "@/app/hooks/useStayerVault";
-import { useGetPrice } from "@/app/hooks/usePriceOracle";
-import { useBalanceOf as useYSCSPRBalance } from "@/app/hooks/useYSCSPR";
-import { useMemo, useState } from "react";
+} from "@/app/(dashboard)/hooks/useStayerVault";
+import { useGetPrice } from "@/app/(dashboard)/hooks/usePriceOracle";
+import { useGetExchangeRate } from "@/app/(dashboard)/hooks/useLiquidStaking";
+import { useMemo } from "react";
 import BigNumber from "bignumber.js";
-import {
-  DialogRoot,
-  DialogContent,
-  DialogCloseTrigger,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import { toaster } from "@/components/ui/toaster";
-import { Field } from "@/components/ui/field";
-import {
-  NumberInputField,
-  NumberInputLabel,
-  NumberInputRoot,
-} from "@/components/ui/number-input";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const MOTE_RATE = new BigNumber(1_000_000_000);
+const DEFAULT_EXCHANGE_RATE = "1000000000";
 
 type Props = StackProps;
+
+function calcCollateralUsd(
+  collateral: string,
+  exchangeRate: string,
+  price: string
+): BigNumber {
+  return new BigNumber(collateral)
+    .multipliedBy(exchangeRate)
+    .dividedBy(MOTE_RATE)
+    .multipliedBy(price)
+    .dividedBy(MOTE_RATE);
+}
 
 export function PositionCard(props: Props) {
   const clickRef = useClickRef();
 
-  const { data: position } = useGetPosition(
+  const { data: position, isLoading: isPositionLoading } = useGetPosition(
     clickRef?.currentAccount?.public_key || "",
     { options: { enabled: !!clickRef?.currentAccount } }
   );
-  const { data: vaultParams } = useGetVaultParams();
-  const { data: cspr_price } = useGetPrice();
+  const { data: vaultParams, isLoading: isVaultParamsLoading } =
+    useGetVaultParams();
+  const { data: cspr_price, isLoading: isPriceLoading } = useGetPrice();
+  const { data: exchangeRate, isLoading: isExchangeRateLoading } =
+    useGetExchangeRate();
 
-  // Calculate collateral value in USD
+  const isLoading =
+    isPositionLoading ||
+    isVaultParamsLoading ||
+    isPriceLoading ||
+    isExchangeRateLoading;
+
   const collateralValue = useMemo(() => {
     if (!position?.collateral || !cspr_price) return "0";
-
-    const collateralBN = new BigNumber(position.collateral).dividedBy(
-      MOTE_RATE
-    );
-    const priceBN = new BigNumber(cspr_price).dividedBy(MOTE_RATE);
-
-    return collateralBN.multipliedBy(priceBN).toFixed(2);
-  }, [position, cspr_price]);
+    return calcCollateralUsd(
+      position.collateral,
+      exchangeRate || DEFAULT_EXCHANGE_RATE,
+      cspr_price
+    ).toFixed(2);
+  }, [position, cspr_price, exchangeRate]);
 
   const debtValue = useMemo(() => {
     if (!position?.debt) return "0";
@@ -75,74 +77,76 @@ export function PositionCard(props: Props) {
       !vaultParams?.liq_threshold ||
       !cspr_price
     )
-      return 1;
+      return 999;
 
-    const collateralBN = new BigNumber(position.collateral).dividedBy(
-      MOTE_RATE
+    const debtBN = new BigNumber(position.debt);
+    if (debtBN.isZero()) return 999;
+
+    const collateralUsd = calcCollateralUsd(
+      position.collateral,
+      exchangeRate || DEFAULT_EXCHANGE_RATE,
+      cspr_price
     );
-    const debtBN = new BigNumber(position.debt).dividedBy(MOTE_RATE);
-    const priceBN = new BigNumber(cspr_price).dividedBy(MOTE_RATE);
-    const liqThresholdBN = new BigNumber(vaultParams.liq_threshold).dividedBy(
-      100
+
+    const liqThreshold = new BigNumber(vaultParams.liq_threshold).dividedBy(
+      10000
     );
 
-    if (debtBN.isZero()) return 1;
+    return collateralUsd
+      .multipliedBy(liqThreshold)
+      .dividedBy(debtBN.dividedBy(MOTE_RATE))
+      .toNumber();
+  }, [position, vaultParams, cspr_price, exchangeRate]);
 
-    const hf = collateralBN
-      .multipliedBy(priceBN)
-      .multipliedBy(liqThresholdBN)
-      .dividedBy(debtBN);
+  const maxBorrowCapacity = useMemo(() => {
+    if (!position?.collateral || !vaultParams?.ltv || !cspr_price) return "0";
 
-    return hf.toNumber();
-  }, [position, vaultParams, cspr_price]);
+    const collateralUsd = calcCollateralUsd(
+      position.collateral,
+      exchangeRate || DEFAULT_EXCHANGE_RATE,
+      cspr_price
+    );
 
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  // const [depositAmount, setDepositAmount] = useState("");
+    const ltv = new BigNumber(vaultParams.ltv).dividedBy(10000);
+    return collateralUsd.multipliedBy(ltv).toFixed(2);
+  }, [position, vaultParams, cspr_price, exchangeRate]);
 
-  const { data: yscspr_balance } = useYSCSPRBalance(
-    clickRef?.currentAccount?.public_key || "",
-    { options: { enabled: !!clickRef?.currentAccount } }
-  );
+  const availableToBorrow = useMemo(() => {
+    const max = new BigNumber(maxBorrowCapacity);
+    const debt = new BigNumber(debtValue);
+    const available = max.minus(debt);
+    return available.isPositive() ? available.toFixed(2) : "0";
+  }, [maxBorrowCapacity, debtValue]);
 
-  const depositMutation = useDeposit({
-    options: {
-      onSuccess: (hash) => {
-        toaster.create({
-          title: "Deposit Successful",
-          description: `Transaction hash: ${hash}`,
-          type: "success",
-        });
-        setIsDialogOpen(false);
-      },
-      onError: (error) => {
-        toaster.create({
-          title: "Deposit Failed",
-          description: error.message,
-          type: "error",
-        });
-      },
-    },
-  });
-
-  const handleAddCollateral = () => {
-    setIsDialogOpen(true);
-  };
-
-  const handleDeposit = (depositAmount: string) => {
-    if (!depositAmount || Number(depositAmount) <= 0) {
-      toaster.create({
-        title: "Invalid Amount",
-        description: "Please enter a valid amount",
-        type: "error",
-      });
-      return;
-    }
-
-    depositMutation.mutate({
-      amount: depositAmount,
-      waitForConfirmation: false,
-    });
-  };
+  if (isLoading) {
+    return (
+      <VStack
+        w="full"
+        h="fit-content"
+        bg="bg.subtle"
+        borderRadius="4xl"
+        p="8"
+        gap={6}
+        align="start"
+        {...props}
+      >
+        <Skeleton height="32px" width="120px" />
+        <HStack w="full" justify="space-between">
+          <VStack align="start" gap={2}>
+            <Skeleton height="16px" width="100px" />
+            <Skeleton height="24px" width="150px" />
+            <Skeleton height="14px" width="80px" />
+          </VStack>
+          <VStack align="start" gap={2}>
+            <Skeleton height="16px" width="100px" />
+            <Skeleton height="24px" width="150px" />
+            <Skeleton height="14px" width="80px" />
+          </VStack>
+        </HStack>
+        <Skeleton height="8px" width="full" />
+      </VStack>
+    );
+  }
 
   return (
     <VStack
@@ -172,17 +176,19 @@ export function PositionCard(props: Props) {
           imageUrl="/assets/cusd-token-icon.svg"
         />
       </HStack>
-      <StatusBar currentPercentage={healthFactor} />
-      <Button size="md" onClick={handleAddCollateral}>
-        Add Collateral
-      </Button>
-      <AddCollateralDialog
-        isOpen={isDialogOpen}
-        yscspr_balance={yscspr_balance}
-        onClose={() => setIsDialogOpen(false)}
-        onConfirm={handleDeposit}
-        isLoading={depositMutation.isPending}
-      />
+      <HStack w="full" justify="space-between">
+        <StatItem
+          label="Max Capacity"
+          value={`${maxBorrowCapacity} cUSD`}
+          imageUrl="/assets/cusd-token-icon.svg"
+        />
+        <StatItem
+          label="Available to Borrow"
+          value={`${availableToBorrow} cUSD`}
+          imageUrl="/assets/cusd-token-icon.svg"
+        />
+      </HStack>
+      <StatusBar healthFactor={healthFactor} />
     </VStack>
   );
 }
@@ -219,30 +225,30 @@ const StatItem = ({
 };
 
 interface StatusBarProps {
-  currentPercentage?: number;
+  healthFactor?: number;
 }
 
-const StatusBar = ({ currentPercentage }: StatusBarProps) => {
-  const levelText = () => {
-    if (currentPercentage === undefined) return "Safe";
-    if (currentPercentage >= 0.7) return "Safe";
-    if (currentPercentage > 0.4) return "Warning";
-    return "Critical";
+const StatusBar = ({ healthFactor }: StatusBarProps) => {
+  const getLevel = () => {
+    if (healthFactor === undefined || healthFactor >= 999)
+      return { text: "Safe", color: "green.400" };
+    if (healthFactor >= 1.5) return { text: "Safe", color: "green.500" };
+    if (healthFactor >= 1.0) return { text: "Warning", color: "yellow.500" };
+    return { text: "Critical", color: "red.400" };
   };
 
-  const levelColor = () => {
-    if (currentPercentage === undefined) return "green.400";
-    if (currentPercentage >= 0.7) return "green.500";
-    if (currentPercentage > 0.4) return "yellow.500";
-    return "red.400";
-  };
-
-  const pct = formatPercentage(currentPercentage || 0, 0);
+  const { text: levelText, color: levelColor } = getLevel();
+  const barPercent = Math.min(100, Math.max(0, ((healthFactor || 0) / 2) * 100));
+  const pct = `${barPercent.toFixed(0)}%`;
+  const hfDisplay =
+    healthFactor !== undefined && healthFactor < 999
+      ? healthFactor.toFixed(2)
+      : "∞";
 
   return (
     <HStack w="full" gap={4}>
-      <Text fontSize="xs" fontWeight="medium" color={levelColor()}>
-        {levelText()}
+      <Text fontSize="xs" fontWeight="medium" color={levelColor}>
+        {levelText}
       </Text>
       <Box
         bg="#FCE5CF"
@@ -253,7 +259,7 @@ const StatusBar = ({ currentPercentage }: StatusBarProps) => {
         w="full"
       >
         <Box
-          bg={levelColor()}
+          bg={levelColor}
           h="8px"
           borderTopLeftRadius="4px"
           borderBottomLeftRadius="4px"
@@ -263,90 +269,8 @@ const StatusBar = ({ currentPercentage }: StatusBarProps) => {
         />
       </Box>
       <Text fontSize="xs" fontWeight="medium" color="text.fg">
-        {pct}
+        HF: {hfDisplay}
       </Text>
     </HStack>
-  );
-};
-
-interface AddDialogProps {
-  isOpen: boolean;
-  yscspr_balance?: string;
-  onClose: () => void;
-  onConfirm: (amount: string) => void;
-  isLoading?: boolean;
-}
-
-const AddCollateralDialog = ({
-  isOpen,
-  yscspr_balance,
-  onClose,
-  onConfirm,
-  isLoading = false,
-}: AddDialogProps) => {
-  const [amount, setAmount] = useState("");
-  const handleMaxClick = (
-    event: React.MouseEvent<HTMLButtonElement, MouseEvent>
-  ): void => {
-    if (yscspr_balance) {
-      setAmount(new BigNumber(yscspr_balance).dividedBy(MOTE_RATE).toString());
-    }
-  };
-
-  return (
-    <DialogRoot open={isOpen} onOpenChange={(e) => onClose()}>
-      <DialogContent borderRadius={"4xl"} p={4}>
-        <VStack gap={4} p={2}>
-          <Heading size="xl">Add Collateral</Heading>
-          {/* <Field label="Deposit Amount"> */}
-          <NumberInputRoot
-            w="full"
-            step={100}
-            min={0}
-            value={amount}
-            onValueChange={(e) => {
-              setAmount(e.value);
-            }}
-          >
-            <NumberInputField
-              colorPalette={"primary"}
-              placeholder="Enter amount to deposit"
-            />
-          </NumberInputRoot>
-          {/* </Field> */}
-          <HStack w="full" justify="space-between">
-            <Text fontSize="sm" color="fg.muted">
-              Available:{" "}
-              {new BigNumber(yscspr_balance || 0)
-                .dividedBy(MOTE_RATE)
-                .toFixed(4)}{" "}
-              ySCSPR
-            </Text>
-            <Button
-              colorPalette={"secondary"}
-              size="xs"
-              variant="ghost"
-              onClick={handleMaxClick}
-            >
-              MAX
-            </Button>
-          </HStack>
-        </VStack>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onClose()}>
-            Cancel
-          </Button>
-          <Button
-            colorPalette={"primary"}
-            onClick={() => onConfirm(amount)}
-            loading={isLoading}
-            disabled={!amount || Number(amount) <= 0}
-          >
-            Deposit
-          </Button>
-        </DialogFooter>
-        <DialogCloseTrigger />
-      </DialogContent>
-    </DialogRoot>
   );
 };

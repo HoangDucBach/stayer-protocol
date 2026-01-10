@@ -1,6 +1,6 @@
 "use client";
-import { useGetValidators, type Validator } from "@/app/hooks/useCasper";
-import { useGetValidator as useGetValidatorRegistry } from "@/app/hooks/useValidatorRegistry";
+import { useGetValidators, type Validator } from "@/app/(dashboard)/hooks/useCasper";
+import { useGetValidator as useGetValidatorRegistry } from "@/app/(dashboard)/hooks/useValidatorRegistry";
 import {
   Badge,
   Button,

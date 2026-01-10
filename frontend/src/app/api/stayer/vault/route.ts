@@ -9,21 +9,53 @@ import {
   parseOdraBool,
   parseVaultParams,
   parsePosition,
-  StayerVaultFields,
 } from "@/libs/odra";
+import { PublicKey } from "casper-js-sdk";
 
-/**
- * GET /api/stayer/vault
- * Query params:
- *   - user: (optional) user address hash to fetch position
- *
- * Returns:
- *   - total_collateral: Total sCSPR collateral locked
- *   - total_debt: Total cUSD debt outstanding
- *   - params: Vault configuration parameters
- *   - paused: Whether vault is paused
- *   - position: (if user provided) User's position data
- */
+const VaultFields = {
+  total_collateral: 1,
+  total_debt: 2,
+  positions: 3,
+  params: 4,
+  paused: 10,
+} as const;
+
+function parseUserToBytes(userStr: string): Buffer | null {
+  try {
+    if (userStr.startsWith("account-hash-")) {
+      const hashHex = userStr.replace("account-hash-", "");
+      return Buffer.concat([Buffer.from([0]), Buffer.from(hashHex, "hex")]);
+    }
+    if (userStr.startsWith("hash-")) {
+      const hashHex = userStr.replace("hash-", "");
+      return Buffer.concat([Buffer.from([1]), Buffer.from(hashHex, "hex")]);
+    }
+    const pubKey = PublicKey.fromHex(userStr);
+    return Buffer.concat([
+      Buffer.from([0]),
+      Buffer.from(pubKey.accountHash().toBytes()),
+    ]);
+  } catch {
+    return null;
+  }
+}
+
+type Parser<T> = (hex: string) => T | null;
+
+async function queryField<T>(
+  stateRoot: string,
+  contractKey: string,
+  fieldIndex: number,
+  parser: Parser<T>,
+  defaultValue: T,
+  mappingData?: Buffer
+): Promise<T> {
+  const key = getOdraKey(fieldIndex, mappingData);
+  const hex = await queryDictionaryState(stateRoot, contractKey, "state", key);
+  if (!hex) return defaultValue;
+  return parser(hex) ?? defaultValue;
+}
+
 export async function GET(request: NextRequest) {
   const user = request.nextUrl.searchParams.get("user");
 
@@ -33,74 +65,53 @@ export async function GET(request: NextRequest) {
       stateRootHash,
       STAYER_VAULT_CONTRACT
     );
-    const contractKey = `hash-${activeContractHash}`;
+    const contractKey = activeContractHash.startsWith("hash-")
+      ? activeContractHash
+      : `hash-${activeContractHash}`;
 
-    // Query total_collateral (field index 0)
-    const collateralKey = getOdraKey(StayerVaultFields.total_collateral);
-    const collateralHex = await queryDictionaryState(
-      stateRootHash,
-      contractKey,
-      "state",
-      collateralKey
-    );
-    const total_collateral = collateralHex
-      ? parseOdraU256(collateralHex)
-      : "0";
+    const [total_collateral, total_debt, params, paused] = await Promise.all([
+      queryField(
+        stateRootHash,
+        contractKey,
+        VaultFields.total_collateral,
+        parseOdraU256,
+        "0"
+      ),
+      queryField(
+        stateRootHash,
+        contractKey,
+        VaultFields.total_debt,
+        parseOdraU256,
+        "0"
+      ),
+      queryField(
+        stateRootHash,
+        contractKey,
+        VaultFields.params,
+        parseVaultParams,
+        null
+      ),
+      queryField(
+        stateRootHash,
+        contractKey,
+        VaultFields.paused,
+        parseOdraBool,
+        false
+      ),
+    ]);
 
-    // Query total_debt (field index 1)
-    const debtKey = getOdraKey(StayerVaultFields.total_debt);
-    const debtHex = await queryDictionaryState(
-      stateRootHash,
-      contractKey,
-      "state",
-      debtKey
-    );
-    const total_debt = debtHex ? parseOdraU256(debtHex) : "0";
-
-    // Query params (field index 3)
-    const paramsKey = getOdraKey(StayerVaultFields.params);
-    const paramsHex = await queryDictionaryState(
-      stateRootHash,
-      contractKey,
-      "state",
-      paramsKey
-    );
-    const params = paramsHex ? parseVaultParams(paramsHex) : null;
-
-    // Query paused (field index 9)
-    const pausedKey = getOdraKey(StayerVaultFields.paused);
-    const pausedHex = await queryDictionaryState(
-      stateRootHash,
-      contractKey,
-      "state",
-      pausedKey
-    );
-    const paused = pausedHex ? parseOdraBool(pausedHex) : false;
-
-    // Query specific user position if user provided
     let position = null;
     if (user) {
-      // User address should be in format: account-hash-xxx or hash-xxx
-      // Extract the hash part
-      const hashMatch = user.match(/(?:account-hash-|hash-)([a-fA-F0-9]+)/);
-      if (hashMatch) {
-        const addressBytes = Buffer.alloc(33);
-        addressBytes[0] = user.startsWith("account-hash-") ? 0 : 1;
-        Buffer.from(hashMatch[1], "hex").copy(addressBytes, 1);
-
-        const positionKey = getOdraKey(
-          StayerVaultFields.positions,
-          addressBytes
-        );
-        const positionHex = await queryDictionaryState(
+      const addressBytes = parseUserToBytes(user);
+      if (addressBytes) {
+        position = await queryField(
           stateRootHash,
           contractKey,
-          "state",
-          positionKey
+          VaultFields.positions,
+          parsePosition,
+          null,
+          addressBytes
         );
-        if (positionHex) {
-          position = parsePosition(positionHex);
-        }
       }
     }
 
@@ -111,10 +122,9 @@ export async function GET(request: NextRequest) {
       paused,
       position,
     });
-  } catch (error: any) {
-    return NextResponse.json(
-      { error: error.message || "Failed to query vault" },
-      { status: 500 }
-    );
+  } catch (error: unknown) {
+    const message =
+      error instanceof Error ? error.message : "Failed to query vault";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
