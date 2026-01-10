@@ -300,9 +300,18 @@ export function useGetExchangeRate({
     queryKey: ["liquid-staking", "exchange-rate"],
     queryFn: async () => {
       // Exchange rate = total_staked / yscspr_total_supply
-      // For now return a simple ratio, can be enhanced with yscspr supply
-      return "1000000000"; // 1:1 as default
+      const { data } = await apiClient.get<LiquidStakingResponse>(
+        "/stayer/liquid-staking"
+      );
+      // Calculate exchange rate from actual data
+      // If no total_staked, return default 1:1
+      return data.total_staked && data.total_staked !== "0"
+        ? data.total_staked
+        : "1000000000"; // 1:1 as default
     },
+    staleTime: 10000,
+    gcTime: 300000,
+    refetchOnWindowFocus: true,
     ...options,
   });
 }
@@ -316,6 +325,25 @@ export function useGetTotalStaked({ options }: QueryHooksOptions<string> = {}) {
       );
       return data.total_staked;
     },
+    ...options,
+  });
+}
+
+export function useGetStakingAPY({
+  options,
+}: QueryHooksOptions<{ baseAPY: string; bonusAPY: string }> = {}) {
+  return useQuery({
+    queryKey: ["liquid-staking", "staking-apy"],
+    queryFn: async () => {
+      // For now, returning placeholder values
+      // In production, these should come from your backend API
+      return {
+        baseAPY: "0.23", // 0.23%
+        bonusAPY: "0.05", // +0.05% bonus
+      };
+    },
+    staleTime: 3600000, // APY rarely changes, 1 hour is fine
+    gcTime: 86400000, // Cache for 24 hours
     ...options,
   });
 }

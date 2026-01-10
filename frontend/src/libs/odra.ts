@@ -273,11 +273,11 @@ export function parseWithdrawalRequest(hex: string): WithdrawalRequest | null {
 }
 
 export const ValidatorRegistryFields = {
-  validators: 0,
-  network_p_avg: 1,
-  last_update_era: 2,
-  keeper: 3,
-  owner: 4,
+  validators: 1,
+  network_p_avg: 2,
+  last_update_era: 3,
+  keeper: 4,
+  owner: 5,
 } as const;
 
 export const PriceOracleFields = {

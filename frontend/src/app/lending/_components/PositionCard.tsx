@@ -16,9 +16,10 @@ import {
 } from "@/app/(dashboard)/hooks/useStayerVault";
 import { useGetPrice } from "@/app/(dashboard)/hooks/usePriceOracle";
 import { useGetExchangeRate } from "@/app/(dashboard)/hooks/useLiquidStaking";
-import { useMemo } from "react";
+import { useMemo, useEffect } from "react";
 import BigNumber from "bignumber.js";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useQueryClient } from "@tanstack/react-query";
 
 const MOTE_RATE = new BigNumber(1_000_000_000);
 const DEFAULT_EXCHANGE_RATE = "1000000000";
@@ -39,9 +40,11 @@ function calcCollateralUsd(
 
 export function PositionCard(props: Props) {
   const clickRef = useClickRef();
+  const queryClient = useQueryClient();
+  const userAddress = clickRef?.currentAccount?.public_key || "";
 
   const { data: position, isLoading: isPositionLoading } = useGetPosition(
-    clickRef?.currentAccount?.public_key || "",
+    userAddress,
     { options: { enabled: !!clickRef?.currentAccount } }
   );
   const { data: vaultParams, isLoading: isVaultParamsLoading } =
@@ -49,6 +52,18 @@ export function PositionCard(props: Props) {
   const { data: cspr_price, isLoading: isPriceLoading } = useGetPrice();
   const { data: exchangeRate, isLoading: isExchangeRateLoading } =
     useGetExchangeRate();
+
+  // Refetch data when account changes
+  useEffect(() => {
+    if (userAddress) {
+      queryClient.invalidateQueries({
+        queryKey: ["stayer-vault", "position", userAddress],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["liquid-staking", "exchange-rate"],
+      });
+    }
+  }, [userAddress, queryClient]);
 
   const isLoading =
     isPositionLoading ||

@@ -462,6 +462,10 @@ export function useGetPosition(
       return data.position;
     },
     enabled: !!userAddress,
+    staleTime: 5000,
+    gcTime: 300000,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
     ...options,
   });
 }
@@ -476,6 +480,8 @@ export function useGetVaultParams({
       console.log("Vault params data:", data);
       return data.params;
     },
+    staleTime: 60000,
+    gcTime: 600000,
     ...options,
   });
 }

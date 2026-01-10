@@ -28,21 +28,21 @@ export function MarketStatsCard(props: MarketStatsCardProps) {
     if (!vaultParams?.liq_threshold) {
       return 0.825;
     }
-    return vaultParams.liq_threshold / 100;
+    return vaultParams.liq_threshold / 10000;
   }, [vaultParams]);
 
   const maxLTV = useMemo(() => {
     if (!vaultParams?.ltv) {
       return 0.75;
     }
-    return vaultParams.ltv / 100;
+    return vaultParams.ltv / 10000;
   }, [vaultParams]);
 
   const stabilityFee = useMemo(() => {
     if (!vaultParams?.stability_fee) {
       return 0.325;
     }
-    return vaultParams.stability_fee / 100;
+    return vaultParams.stability_fee / 10000;
   }, [vaultParams]);
 
   return (

@@ -72,8 +72,9 @@ export function formatCompact(
 }
 
 export function formatPercentage(value: number, decimals: number = 2, isFloat: boolean = true): string {
-  if (!isFloat) {
-    return `${value.toFixed(decimals)}%`;
-  }
-  return `${(value * 100).toFixed(decimals)}%`;
+  const percentValue = isFloat ? value * 100 : value;
+  const formatted = percentValue.toFixed(decimals);
+  // Remove trailing zeros and unnecessary decimal point
+  const cleaned = formatted.replace(/\.?0+$/, '');
+  return `${cleaned}%`;
 }

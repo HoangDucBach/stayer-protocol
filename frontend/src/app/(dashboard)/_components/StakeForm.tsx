@@ -24,7 +24,7 @@ import {
   useGetValidator,
   useGetNetworkPAvg,
 } from "@/app/(dashboard)/hooks/useValidatorRegistry";
-import { useStake, useGetExchangeRate } from "@/app/(dashboard)/hooks/useLiquidStaking";
+import { useStake, useGetExchangeRate, useGetStakingAPY } from "@/app/(dashboard)/hooks/useLiquidStaking";
 import { useClickRef } from "@make-software/csprclick-ui";
 import BigNumber from "bignumber.js";
 import { motion } from "framer-motion";
@@ -84,7 +84,8 @@ export function StakeForm({ validator, onBack, onStakeComplete }: Props) {
 
   const { data: networkPAvg } = useGetNetworkPAvg();
   const { data: currentEra } = useGetCurrentEra();
-  const { data: exchangeRate } = useGetExchangeRate();  
+  const { data: exchangeRate } = useGetExchangeRate();
+  const { data: apyData } = useGetStakingAPY();  
 
   const stakeMutation = useStake({
     options: {
@@ -117,10 +118,11 @@ export function StakeForm({ validator, onBack, onStakeComplete }: Props) {
   }, [accountBalance]);
   const unbondingTime = "14 hours";
 
-  // Calculate validator multiplier
+  // Calculate validator multiplier (in basis points)
   const multiplier = useMemo(() => {
-    if (!validatorData?.p_score || !networkPAvg) return 1;
-    return validatorData.p_score / networkPAvg;
+    if (!validatorData?.p_score || !networkPAvg) return 10000; // 1.0x in basis points
+    const rawMultiplier = (validatorData.p_score * 10000) / networkPAvg;
+    return Math.max(5000, Math.min(15000, rawMultiplier));
   }, [validatorData, networkPAvg]);
 
   // Calculate receive amount with multiplier and exchange rate
@@ -132,22 +134,23 @@ export function StakeForm({ validator, onBack, onStakeComplete }: Props) {
     const multiplierBN = new BigNumber(multiplier);
 
     // Base ySCSPR = amount / exchange_rate
-    // With multiplier: ySCSPR = (amount / exchange_rate) * multiplier
+    // With multiplier: ySCSPR = (amount / exchange_rate) * multiplier / 10000
     const yscspr = amountBN
       .dividedBy(exchangeRateBN)
-      .multipliedBy(multiplierBN);
+      .multipliedBy(multiplierBN)
+      .dividedBy(10000);
 
     return yscspr.toFixed(2);
   }, [amount, exchangeRate, multiplier]);
 
   const bonusAmount = useMemo(() => {
     if (!amount || isNaN(Number(amount)) || !exchangeRate) return "+0";
-
+console.log("P_Score:", validatorData?.p_score, "Avg:", networkPAvg, "Multiplier:", multiplier);
     const amountBN = new BigNumber(amount);
     const exchangeRateBN = new BigNumber(exchangeRate).dividedBy(MOTE_RATE);
     const multiplierBN = new BigNumber(multiplier);
     const baseYSCSPR = amountBN.dividedBy(exchangeRateBN);
-    const bonus = baseYSCSPR.multipliedBy(multiplierBN.minus(1));
+    const bonus = baseYSCSPR.multipliedBy(multiplierBN.minus(10000)).dividedBy(10000);
 
     return bonus.isGreaterThan(0) ? `+${bonus.toFixed(2)}` : "+0";
   }, [amount, exchangeRate, multiplier]);
@@ -275,6 +278,23 @@ export function StakeForm({ validator, onBack, onStakeComplete }: Props) {
               </HStack>
             }
           />
+
+          {/* APY Information */}
+          {apyData && (
+            <InfoLine
+              leftText="Staking APY"
+              rightNode={
+                <HStack gap={2}>
+                  <Text fontSize="sm" color="fg">
+                    {apyData.baseAPY}%
+                  </Text>
+                  <Text fontSize="sm" color="success.fg">
+                    +{apyData.bonusAPY}% bonus
+                  </Text>
+                </HStack>
+              }
+            />
+          )}
 
           {/* Validator */}
           <InfoLine
